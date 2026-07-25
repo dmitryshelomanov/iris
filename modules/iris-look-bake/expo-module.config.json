@@ -1,0 +1,9 @@
+{
+  "platforms": ["apple", "android"],
+  "apple": {
+    "modules": ["IrisLookBakeModule"]
+  },
+  "android": {
+    "modules": ["expo.modules.irislookbake.IrisLookBakeModule"]
+  }
+}
