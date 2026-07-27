@@ -414,7 +414,7 @@ export function ReviewModal({
             error={rebakeError}
             onLookChange={setDraftLookId}
             onStrengthChange={setDraftStrength}
-            onApply={() => void applyRebake()}
+            onApply={applyRebake}
             onClose={() => setLookSheet(false)}
           />
         ) : (

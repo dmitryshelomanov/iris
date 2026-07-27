@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { ArrowLeft, Heart } from 'lucide-react-native';
 
+import { toggleFavoriteRecent } from '@/entities/capture';
 import { getLookPreset, isLookPresetId } from '@/features/camera';
 import { ReviewModal, useRecents } from '@/features/media';
 import { Icon } from '@/shared/ui/icon';
@@ -53,7 +54,6 @@ export function GalleryPage() {
 
   const toggleFavorite = useCallback(
     async (id: string) => {
-      const { toggleFavoriteRecent } = await import('@/entities/capture');
       await toggleFavoriteRecent(id);
       await refresh();
     },
@@ -210,7 +210,7 @@ export function GalleryPage() {
           await dismiss(id);
           setReviewId(null);
         }}
-        onToggleFavorite={(id) => void toggleFavorite(id)}
+        onToggleFavorite={toggleFavorite}
       />
     </View>
   );

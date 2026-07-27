@@ -28,15 +28,6 @@ export function useCameraZoom({ cameraRef, minZoom, maxZoom }: Options) {
     [maxZoom, minZoom, zoomSV],
   );
 
-  useEffect(() => {
-    minZoomSV.value = minZoom;
-    maxZoomSV.value = maxZoom;
-  }, [minZoom, maxZoom, minZoomSV, maxZoomSV]);
-
-  useEffect(() => {
-    setZoom((z) => Math.min(maxZoom, Math.max(minZoom, z)));
-  }, [minZoom, maxZoom, setZoom]);
-
   const syncZoomFromGesture = useCallback((next: number) => {
     setZoomState(next);
   }, []);
@@ -45,7 +36,7 @@ export function useCameraZoom({ cameraRef, minZoom, maxZoom }: Options) {
     (next: number) => {
       const controller = cameraRef.current?.controller;
       if (!controller) return;
-      void controller.setZoom(next);
+      controller.setZoom(next).catch(() => {});
     },
     [cameraRef],
   );
@@ -56,6 +47,15 @@ export function useCameraZoom({ cameraRef, minZoom, maxZoom }: Options) {
     lastPinchJsSync.current = now;
     setZoomState(next);
   }, []);
+
+  useEffect(() => {
+    minZoomSV.value = minZoom;
+    maxZoomSV.value = maxZoom;
+  }, [minZoom, maxZoom, minZoomSV, maxZoomSV]);
+
+  useEffect(() => {
+    setZoom((z) => Math.min(maxZoom, Math.max(minZoom, z)));
+  }, [minZoom, maxZoom, setZoom]);
 
   return {
     zoom,

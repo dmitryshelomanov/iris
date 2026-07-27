@@ -14,6 +14,9 @@ export type AspectRatio = '4:3' | '16:9';
 
 export type TimerSeconds = 0 | 3 | 10;
 
+/** Explicit FPS or highest supported ≤ 60 (avoids slo-mo 120/240 formats). */
+export type VideoFpsOption = 30 | 60 | 'max';
+
 export type LookPresetId =
   'none' | 'kp' | 'kg' | 'ke' | 'fs' | 'fp' | 'ag' | 'as' | 'pd' | 'tc' | 'tx' | 'tn' | 'cm' | 'pp';
 
@@ -79,6 +82,10 @@ export interface CaptureSettings {
   photoHDR: boolean;
   shutterSound: boolean;
   distortionCorrection: boolean;
+  /** System EIS for video capture (VisionCamera videoStabilizationMode). */
+  videoStabilization: boolean;
+  /** Target video frame rate (applied as VisionCamera `{ fps }` constraint). */
+  videoFps: VideoFpsOption;
   showCrosshair: boolean;
   showGrid: boolean;
   showLevel: boolean;
@@ -106,6 +113,8 @@ export const DEFAULT_CAPTURE_SETTINGS: CaptureSettings = {
   photoHDR: false,
   shutterSound: true,
   distortionCorrection: false,
+  videoStabilization: true,
+  videoFps: 'max',
   showCrosshair: false,
   showGrid: false,
   showLevel: false,
@@ -130,6 +139,8 @@ export const PERSISTED_CAPTURE_KEYS = [
   'photoHDR',
   'shutterSound',
   'distortionCorrection',
+  'videoStabilization',
+  'videoFps',
   'showCrosshair',
   'showGrid',
   'showLevel',
@@ -154,6 +165,7 @@ export interface CameraCapabilities {
   supportsLowLightBoost: boolean;
   supportsDistortionCorrection: boolean;
   supportsPhotoHDR: boolean;
+  supportsVideoStabilization: boolean;
   supportsSpeedQuality: boolean;
   minExposureBias: number;
   maxExposureBias: number;

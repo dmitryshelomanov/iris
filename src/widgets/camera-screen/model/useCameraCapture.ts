@@ -262,7 +262,9 @@ export function useCameraCapture({
 
       await recorder.startRecording(
         (filePath) => {
-          void finishRecording(filePath);
+          finishRecording(filePath).catch((error) => {
+            console.warn('[iris] finishRecording failed', error);
+          });
         },
         (error) => {
           console.warn('[iris] recording error', error);
@@ -354,7 +356,9 @@ export function useCameraCapture({
 
   useEffect(() => {
     if (mode !== 'video' && isRecording) {
-      void stopRecording();
+      stopRecording().catch((error) => {
+        console.warn('[iris] stopRecording effect failed', error);
+      });
     }
   }, [isRecording, mode, stopRecording]);
 

@@ -12,6 +12,7 @@ import {
   buildLensCatalog,
   buildZoomDialMajors,
   resolutionForAspect,
+  resolveVideoFps,
   videoResolutionForAspect,
   zoomRange,
   type CaptureMode,
@@ -20,27 +21,15 @@ import {
   type LensOption,
 } from '@/features/camera';
 
-type MicPermission = {
-  hasPermission: boolean;
-};
-
 type Options = {
   mode: CaptureMode;
   settings: CaptureSettings;
-  mic: MicPermission;
   setZoom: (next: number | ((prev: number) => number)) => void;
   setStatus: (status: string | null) => void;
   patchSettings: (patch: Partial<CaptureSettings>) => void;
 };
 
-export function useCameraSession({
-  mode,
-  settings,
-  mic,
-  setZoom,
-  setStatus,
-  patchSettings,
-}: Options) {
+export function useCameraSession({ mode, settings, setZoom, setStatus, patchSettings }: Options) {
   const cameraRef = useRef<CameraRef>(null);
   const devices = useCameraDevices();
   const lenses = useMemo(() => buildLensCatalog(devices), [devices]);
@@ -75,10 +64,12 @@ export function useCameraSession({
         : settings.qualityPrioritization,
   });
 
-  // Audio track is recorded whenever the mic is granted (Vision Camera requires permission).
+  // Keep audio output enabled from the start to avoid silent recordings
+  // caused by dynamic reconfiguration after mic permission changes.
+  // Recording itself is still gated by mic permission in useCameraCapture.
   const videoOutput = useVideoOutput({
     targetResolution: videoResolutionForAspect(settings.aspect),
-    enableAudio: mic.hasPermission,
+    enableAudio: true,
     fileType: 'mp4',
   });
 
@@ -87,43 +78,36 @@ export function useCameraSession({
     if (settings.photoHDR && capabilities.supportsPhotoHDR && mode === 'photo') {
       list.push({ photoHDR: true });
     }
+    if (
+      mode === 'video' &&
+      settings.videoStabilization &&
+      capabilities.supportsVideoStabilization
+    ) {
+      list.push({ videoStabilizationMode: 'auto' });
+      if (device?.supportsPreviewStabilizationMode('auto')) {
+        list.push({ previewStabilizationMode: 'auto' });
+      }
+    }
+    if (mode === 'video') {
+      const fps = resolveVideoFps(device, settings.videoFps);
+      if (fps != null) list.push({ fps });
+    }
     return list;
-  }, [mode, photoOutput, videoOutput, settings.photoHDR, capabilities.supportsPhotoHDR]);
-
-  useEffect(() => {
-    if (lenses.length === 0) return;
-    const stillValid = activeLensId != null && lenses.some((l) => l.id === activeLensId);
-    if (stillValid) return;
-
-    const preferred =
-      lenses.find((l) => l.kind === 'multi') ??
-      lenses.find((l) => l.position === 'back' && l.deviceType === 'wide-angle' && l.isNative) ??
-      lenses.find((l) => l.position === 'back' && l.isNative) ??
-      lenses[0];
-    setActiveLensId(preferred.id);
-    setZoom(preferred.zoom);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lenses, activeLensId]);
-
-  useEffect(() => {
-    setSessionReady(false);
-  }, [device?.id]);
-
-  useEffect(() => {
-    setSessionReady(false);
-  }, [photoOutput, videoOutput]);
-
-  useEffect(() => {
-    if (!activeLens || !device) return;
-    if (activeLens.device.id !== device.id) return;
-    setZoom(activeLens.zoom);
-    // Intentionally keyed on lens id — mirrors prior CameraScreen behavior.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeLens?.id]);
+  }, [
+    mode,
+    photoOutput,
+    videoOutput,
+    settings.photoHDR,
+    settings.videoStabilization,
+    settings.videoFps,
+    capabilities.supportsPhotoHDR,
+    capabilities.supportsVideoStabilization,
+    device,
+  ]);
 
   const onSessionConfigured = useCallback(() => {
     setSessionReady(true);
-    void photoOutput
+    photoOutput
       .prepareSettings([
         { flashMode: 'off', enableShutterSound: true },
         { flashMode: 'on', enableShutterSound: true },
@@ -161,6 +145,37 @@ export function useCameraSession({
       lenses.find((l) => l.position === targetPosition);
     if (next) onSelectLens(next);
   }, [activeLens, lenses, onSelectLens]);
+
+  useEffect(() => {
+    if (lenses.length === 0) return;
+    const stillValid = activeLensId != null && lenses.some((l) => l.id === activeLensId);
+    if (stillValid) return;
+
+    const preferred =
+      lenses.find((l) => l.kind === 'multi') ??
+      lenses.find((l) => l.position === 'back' && l.deviceType === 'wide-angle' && l.isNative) ??
+      lenses.find((l) => l.position === 'back' && l.isNative) ??
+      lenses[0];
+    setActiveLensId(preferred.id);
+    setZoom(preferred.zoom);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lenses, activeLensId]);
+
+  useEffect(() => {
+    setSessionReady(false);
+  }, [device?.id]);
+
+  useEffect(() => {
+    setSessionReady(false);
+  }, [photoOutput, videoOutput]);
+
+  useEffect(() => {
+    if (!activeLens || !device) return;
+    if (activeLens.device.id !== device.id) return;
+    setZoom(activeLens.zoom);
+    // Intentionally keyed on lens id — mirrors prior CameraScreen behavior.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeLens?.id]);
 
   return {
     cameraRef,

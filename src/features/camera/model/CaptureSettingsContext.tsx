@@ -43,6 +43,9 @@ function mergeStored(raw: string | null): CaptureSettings {
     if (!isLookPresetId(merged.lookId)) {
       merged.lookId = DEFAULT_CAPTURE_SETTINGS.lookId;
     }
+    if (merged.videoFps !== 'max' && merged.videoFps !== 30 && merged.videoFps !== 60) {
+      merged.videoFps = DEFAULT_CAPTURE_SETTINGS.videoFps;
+    }
     return merged;
   } catch {
     return DEFAULT_CAPTURE_SETTINGS;
@@ -72,7 +75,7 @@ export function CaptureSettingsProvider({ children }: { children: ReactNode }) {
   const persist = useCallback((next: CaptureSettings) => {
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
-      void AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify(pickPersisted(next)));
+      AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify(pickPersisted(next))).catch(() => {});
     }, 200);
   }, []);
 

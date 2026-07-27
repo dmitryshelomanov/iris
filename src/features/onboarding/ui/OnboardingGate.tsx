@@ -46,9 +46,9 @@ export function OnboardingGate({ children }: { children: ReactNode }) {
     setVisible(false);
   };
 
-  const next = () => {
+  const next = async () => {
     if (step >= STEPS.length - 1) {
-      void finish();
+      await finish();
       return;
     }
     setStep((s) => s + 1);
@@ -74,7 +74,7 @@ export function OnboardingGate({ children }: { children: ReactNode }) {
                 {step >= STEPS.length - 1 ? 'Start shooting' : 'Next'}
               </Text>
             </Pressable>
-            <Pressable onPress={() => void finish()} className="items-center py-1">
+            <Pressable onPress={finish} className="items-center py-1">
               <Text className="text-sm text-white/40">Skip</Text>
             </Pressable>
           </View>

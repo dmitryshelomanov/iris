@@ -6,7 +6,7 @@ import type { MirrorMode, QualityPrioritization } from 'react-native-vision-came
 import { Button } from '@/shared/ui/button';
 import { Separator } from '@/shared/ui/separator';
 import { Text } from '@/shared/ui/text';
-import { useCaptureSettings, type AspectRatio } from '@/features/camera';
+import { useCaptureSettings, type AspectRatio, type VideoFpsOption } from '@/features/camera';
 import { cn } from '@/shared/lib/utils';
 
 export function SettingsPage() {
@@ -75,6 +75,29 @@ export function SettingsPage() {
           value={settings.distortionCorrection}
           onChange={(distortionCorrection) => patchSettings({ distortionCorrection })}
         />
+        <Separator />
+        <ToggleRow
+          label="Video stabilization"
+          hint="EIS — crops FoV, may add slight latency"
+          value={settings.videoStabilization}
+          onChange={(videoStabilization) => patchSettings({ videoStabilization })}
+        />
+        <Separator />
+        <Row label="Video FPS">
+          <Segmented
+            value={String(settings.videoFps)}
+            options={[
+              { value: '30', label: '30' },
+              { value: '60', label: '60' },
+              { value: 'max', label: 'Max' },
+            ]}
+            onChange={(videoFps) =>
+              patchSettings({
+                videoFps: (videoFps === 'max' ? 'max' : Number(videoFps)) as VideoFpsOption,
+              })
+            }
+          />
+        </Row>
         <Separator />
         <ToggleRow
           label="Shutter sound"

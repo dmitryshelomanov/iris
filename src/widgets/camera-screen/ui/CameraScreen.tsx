@@ -75,17 +75,6 @@ export function CameraScreen() {
   const isCapturingRef = useRef(false);
   const cameraActive = isFocused && appState === 'active';
 
-  useEffect(() => {
-    const sub = AppState.addEventListener('change', setAppState);
-    return () => sub.remove();
-  }, []);
-
-  // Ask for mic early so video output can enableAudio before the first record.
-  useEffect(() => {
-    if (!hasPermission || mic.hasPermission || !mic.canRequestPermission) return;
-    mic.requestPermission();
-  }, [hasPermission, mic.hasPermission, mic.canRequestPermission, mic.requestPermission]);
-
   const setZoomRef = useRef<(next: number | ((prev: number) => number)) => void>(() => {});
   const setZoom = useCallback((next: number | ((prev: number) => number)) => {
     setZoomRef.current(next);
@@ -94,7 +83,6 @@ export function CameraScreen() {
   const session = useCameraSession({
     mode,
     settings,
-    mic,
     setZoom,
     setStatus,
     patchSettings,
@@ -181,11 +169,36 @@ export function CameraScreen() {
     patchSettings,
   });
 
+  const onFlipOrUnlock = useCallback(async () => {
+    if (preview.aeAfLocked) {
+      await preview.unlockAeAf();
+      return;
+    }
+    session.onFlip();
+  }, [preview.aeAfLocked, preview.unlockAeAf, session.onFlip]);
+
+  const onToggleFavorite = useCallback(
+    async (id: string) => {
+      await toggleFavoriteRecent(id);
+      await refresh();
+    },
+    [refresh],
+  );
+
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', setAppState);
+    return () => sub.remove();
+  }, []);
+
+  // Ask for mic early so video output can enableAudio before the first record.
+  useEffect(() => {
+    if (!hasPermission || mic.hasPermission || !mic.canRequestPermission) return;
+    mic.requestPermission().catch(() => {});
+  }, [hasPermission, mic.hasPermission, mic.canRequestPermission, mic.requestPermission]);
+
   useVolumeShutter({
     enabled: cameraActive && settings.volumeShutter && hasPermission && !!session.device,
-    onShutter: () => {
-      void capture.onCapture();
-    },
+    onShutter: capture.onCapture,
   });
 
   if (!hasPermission) {
@@ -297,7 +310,7 @@ export function CameraScreen() {
         </View>
         <View className="min-h-9 flex-1 flex-row items-center justify-end">
           <Pressable
-            onPress={preview.aeAfLocked ? () => void preview.unlockAeAf() : session.onFlip}
+            onPress={onFlipOrUnlock}
             className="h-9 w-9 items-center justify-center rounded-full bg-black/45"
           >
             <Icon as={FlipHorizontal2} className="text-white" size={18} />
@@ -420,10 +433,7 @@ export function CameraScreen() {
         onDelete={async (id) => {
           await dismiss(id);
         }}
-        onToggleFavorite={async (id) => {
-          await toggleFavoriteRecent(id);
-          await refresh();
-        }}
+        onToggleFavorite={onToggleFavorite}
       />
 
       <ReviewModal
@@ -432,10 +442,7 @@ export function CameraScreen() {
         initialId={lastShot?.id}
         postCapture
         onClose={() => setPostCaptureOpen(false)}
-        onToggleFavorite={async (id) => {
-          await toggleFavoriteRecent(id);
-          await refresh();
-        }}
+        onToggleFavorite={onToggleFavorite}
       />
 
       <CameraPresetsDialog
@@ -443,10 +450,10 @@ export function CameraScreen() {
         presets={presets.presets}
         suggestedName={defaultPresetName()}
         onClose={() => presets.setPresetsOpen(false)}
-        onSaveCurrent={(name) => void presets.saveCurrentPreset(name)}
+        onSaveCurrent={presets.saveCurrentPreset}
         onApply={presets.applyCameraPreset}
-        onRename={(preset, name) => void presets.renamePreset(preset, name)}
-        onDelete={(preset) => void presets.removePreset(preset)}
+        onRename={presets.renamePreset}
+        onDelete={presets.removePreset}
       />
     </View>
   );

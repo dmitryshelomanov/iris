@@ -5,6 +5,7 @@ export type {
   CaptureSettings,
   AspectRatio,
   TimerSeconds,
+  VideoFpsOption,
   LensId,
   LensKind,
   LensOption,
@@ -27,6 +28,7 @@ export {
   zoomRange,
   ZOOM_UI_MAX,
 } from './lenses';
+export { resolveVideoFps } from './videoFps';
 export {
   LOOK_PRESETS,
   getLookPreset,
