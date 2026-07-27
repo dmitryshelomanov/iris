@@ -54,6 +54,15 @@ class BakeLookVideoOptions : Record {
 
   @Field
   var stampText: String = ""
+
+  @Field
+  var smooth: Double = 0.0
+
+  @Field
+  var posterize: Double = 0.0
+
+  @Field
+  var edges: Double = 0.0
 }
 
 class IrisLookBakeModule : Module() {
@@ -81,7 +90,12 @@ class IrisLookBakeModule : Module() {
       throw IllegalArgumentException("Input video not found")
     }
 
-    if (options.matrix.size != 20) {
+    if (
+      options.matrix.size != 20 &&
+      options.smooth <= 0.01 &&
+      options.posterize <= 0.01 &&
+      options.edges <= 0.01
+    ) {
       return passthrough(inputFile)
     }
 
@@ -104,7 +118,11 @@ class IrisLookBakeModule : Module() {
 
       val fps = 20
       val frameCount = max(1, min(180, ((durationMs / 1000.0) * fps).roundToInt()))
-      val colorMatrix = colorMatrixFromOptions(options)
+      val colorMatrix = if (options.matrix.size == 20) {
+        colorMatrixFromOptions(options)
+      } else {
+        ColorMatrix()
+      }
       val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply {
         colorFilter = ColorMatrixColorFilter(colorMatrix)
       }
@@ -257,11 +275,13 @@ class IrisLookBakeModule : Module() {
       for (i in 0 until frameCount) {
         val timeUs = (i * durationMs * 1000L) / frameCount
         val raw = retriever.getFrameAtTime(timeUs, MediaMetadataRetriever.OPTION_CLOSEST) ?: continue
-        val graded = Bitmap.createBitmap(outW, outH, Bitmap.Config.ARGB_8888)
+        var graded = Bitmap.createBitmap(outW, outH, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(graded)
         canvas.drawBitmap(raw, null, android.graphics.Rect(0, 0, outW, outH), paint)
+        graded = applyToon(graded, options)
 
         if (options.stamp > 0.05 && options.stampText.isNotEmpty()) {
+          val stampCanvas = Canvas(graded)
           val stampPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = android.graphics.Color.argb(
               (options.stamp.coerceIn(0.0, 1.0) * 240).roundToInt(),
@@ -273,7 +293,7 @@ class IrisLookBakeModule : Module() {
             typeface = android.graphics.Typeface.MONOSPACE
             isFakeBoldText = true
           }
-          canvas.drawText(options.stampText, outW * 0.72f, outH * 0.94f, stampPaint)
+          stampCanvas.drawText(options.stampText, outW * 0.72f, outH * 0.94f, stampPaint)
         }
 
         val yuv = argbToNv12(graded)
@@ -308,6 +328,77 @@ class IrisLookBakeModule : Module() {
       } catch (_: Exception) {
       }
     }
+  }
+
+  private fun applyToon(source: Bitmap, options: BakeLookVideoOptions): Bitmap {
+    val smooth = options.smooth
+    val posterize = options.posterize
+    val edges = options.edges
+    if (smooth <= 0.01 && posterize <= 0.01 && edges <= 0.01) return source
+
+    var working = source
+    if (smooth > 0.01) {
+      val factor = (1.0 / (1.0 + smooth * 7.0)).coerceIn(0.12, 1.0)
+      val tw = max(2, (working.width * factor).roundToInt())
+      val th = max(2, (working.height * factor).roundToInt())
+      val small = Bitmap.createScaledBitmap(working, tw, th, true)
+      val blurred = Bitmap.createScaledBitmap(small, working.width, working.height, true)
+      small.recycle()
+      // Caller only recycles the returned bitmap — free the previous frame.
+      working.recycle()
+      working = blurred
+    }
+
+    val w = working.width
+    val h = working.height
+    val pixels = IntArray(w * h)
+    working.getPixels(pixels, 0, w, 0, 0, w, h)
+
+    if (posterize > 0.01) {
+      val levels = max(2, (32.0 - posterize * 28.0).roundToInt())
+      val step = 255.0 / (levels - 1)
+      for (i in pixels.indices) {
+        val c = pixels[i]
+        val a = c ushr 24
+        val r = ((((c shr 16) and 0xff) / step).roundToInt() * step).roundToInt().coerceIn(0, 255)
+        val g = ((((c shr 8) and 0xff) / step).roundToInt() * step).roundToInt().coerceIn(0, 255)
+        val b = (((c and 0xff) / step).roundToInt() * step).roundToInt().coerceIn(0, 255)
+        pixels[i] = (a shl 24) or (r shl 16) or (g shl 8) or b
+      }
+    }
+
+    if (edges > 0.01) {
+      val luma = FloatArray(w * h)
+      for (i in pixels.indices) {
+        val c = pixels[i]
+        val r = (c shr 16) and 0xff
+        val g = (c shr 8) and 0xff
+        val b = c and 0xff
+        luma[i] = 0.2126f * r + 0.7152f * g + 0.0722f * b
+      }
+      val strength = edges.toFloat().coerceIn(0f, 1f)
+      for (y in 1 until h - 1) {
+        for (x in 1 until w - 1) {
+          val i = y * w + x
+          val gx = luma[i + 1] - luma[i - 1]
+          val gy = luma[i + w] - luma[i - w]
+          val edge = kotlin.math.sqrt(gx * gx + gy * gy) / 255f
+          val ink = (1f - (edge * (1.2f + strength * 3.5f)).coerceIn(0f, 1f) * strength)
+          val c = pixels[i]
+          val a = c ushr 24
+          val r = (((c shr 16) and 0xff) * ink).roundToInt().coerceIn(0, 255)
+          val g = (((c shr 8) and 0xff) * ink).roundToInt().coerceIn(0, 255)
+          val b = ((c and 0xff) * ink).roundToInt().coerceIn(0, 255)
+          pixels[i] = (a shl 24) or (r shl 16) or (g shl 8) or b
+        }
+      }
+    }
+
+    val out = if (working.isMutable) working else working.copy(Bitmap.Config.ARGB_8888, true).also {
+      if (working !== source) working.recycle()
+    }
+    out.setPixels(pixels, 0, w, 0, 0, w, h)
+    return out
   }
 
   private fun argbToNv12(bitmap: Bitmap): ByteArray {

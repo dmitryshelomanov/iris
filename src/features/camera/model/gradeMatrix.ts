@@ -95,7 +95,10 @@ export function needsLookBake(overlay: LookOverlay, strength: number) {
     overlay.grain > 0 ||
     overlay.bloom > 0 ||
     overlay.leak > 0 ||
-    overlay.stamp > 0
+    overlay.stamp > 0 ||
+    overlay.smooth > 0 ||
+    overlay.posterize > 0 ||
+    overlay.edges > 0
   );
 }
 

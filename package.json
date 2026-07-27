@@ -55,6 +55,7 @@
     "start": "expo start --dev-client",
     "android": "expo run:android",
     "ios": "expo run:ios",
+    "ios:prod": "expo run:ios --configuration Release --device --no-bundler",
     "web": "expo start --web",
     "prebuild:ios": "expo prebuild --platform ios",
     "lint:types": "tsc --noEmit",

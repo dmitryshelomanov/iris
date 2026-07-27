@@ -1,4 +1,3 @@
-import { Pressable, ScrollView } from 'react-native';
 import {
   Aperture,
   Binoculars,
@@ -8,11 +7,12 @@ import {
   User,
   type LucideIcon,
 } from 'lucide-react-native';
+import { Pressable, ScrollView } from 'react-native';
 
+import { cn } from '@/shared/lib/utils';
 import { Icon } from '@/shared/ui/icon';
 import { Text } from '@/shared/ui/text';
 import type { LensId, LensKind, LensOption } from '../model';
-import { cn } from '@/shared/lib/utils';
 
 type Props = {
   lenses: LensOption[];

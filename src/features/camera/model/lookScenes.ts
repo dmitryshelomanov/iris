@@ -1,17 +1,19 @@
-import type { LookPresetId } from './types';
 import { LOOK_PRESETS } from './presets';
+import type { LookPresetId } from './types';
 
-export type LookSceneId = 'all' | 'color' | 'mono';
+export type LookSceneId = 'all' | 'color' | 'mono' | 'fx';
 
 export const LOOK_SCENES: { id: LookSceneId; label: string }[] = [
   { id: 'all', label: 'All' },
   { id: 'color', label: 'Color' },
   { id: 'mono', label: 'Mono' },
+  { id: 'fx', label: 'FX' },
 ];
 
 const SCENE_LOOKS: Record<Exclude<LookSceneId, 'all'>, LookPresetId[]> = {
   color: ['none', 'kp', 'kg', 'ke', 'fs', 'fp', 'ag', 'pd', 'tc'],
   mono: ['none', 'as', 'tx'],
+  fx: ['none', 'tn', 'cm', 'pp'],
 };
 
 export function looksForScene(scene: LookSceneId) {

@@ -9,6 +9,9 @@ export type BakeLookVideoNativeOptions = {
   leak: number;
   stamp: number;
   stampText: string;
+  smooth: number;
+  posterize: number;
+  edges: number;
 };
 
 export type BakeLookVideoNativeResult = {

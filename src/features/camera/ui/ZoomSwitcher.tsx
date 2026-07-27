@@ -204,10 +204,7 @@ export function ZoomSwitcher({
               const hide = Math.abs(m - activeOwner) < 0.04 && Math.abs(zoom - m) < 0.14;
               if (hide) return null;
               return (
-                <View
-                  key={m}
-                  style={[styles.label, { left: markTs[idx]! * TRACK - 20 }]}
-                >
+                <View key={m} style={[styles.label, { left: markTs[idx]! * TRACK - 20 }]}>
                   <Text style={styles.labelFactor}>{formatZoomFactor(m, device)}</Text>
                   <Text style={styles.labelMm}>{formatZoomMm(m, device, wideFocalMm)}</Text>
                 </View>

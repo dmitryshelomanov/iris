@@ -28,7 +28,10 @@ function isActive(overlay: LookOverlayConfig) {
     overlay.grain > 0 ||
     overlay.bloom > 0 ||
     overlay.leak > 0 ||
-    overlay.stamp > 0
+    overlay.stamp > 0 ||
+    overlay.smooth > 0 ||
+    overlay.posterize > 0 ||
+    overlay.edges > 0
   );
 }
 
@@ -71,6 +74,10 @@ export function LookOverlay({ overlay, strength = 1 }: Props) {
   const lift = Math.max(0, preview.bias);
   const crushBias = Math.max(0, -preview.bias);
   const effectiveGrain = overlay.grain * strength;
+  const toonPosterize = overlay.posterize * strength;
+  const toonEdges = overlay.edges * strength;
+  const toonSmooth = overlay.smooth * strength;
+  const isToon = toonPosterize > 0.02 || toonEdges > 0.02 || toonSmooth > 0.02;
 
   return (
     <View pointerEvents="none" style={StyleSheet.absoluteFill}>
@@ -85,13 +92,28 @@ export function LookOverlay({ overlay, strength = 1 }: Props) {
           ]}
         />
       ) : null}
-      {crush > 0.02 || crushBias > 0.005 ? (
+      {crush > 0.02 || crushBias > 0.005 || toonPosterize > 0.05 ? (
         <View
           style={[
             StyleSheet.absoluteFill,
             {
               backgroundColor: '#050508',
-              opacity: crush * 0.24 + crushBias * 1.2,
+              opacity:
+                crush * 0.24 +
+                crushBias * 1.2 +
+                (isToon ? toonPosterize * 0.18 + toonSmooth * 0.08 : 0),
+            },
+          ]}
+        />
+      ) : null}
+
+      {isToon && overlay.saturation > 1.05 ? (
+        <View
+          style={[
+            StyleSheet.absoluteFill,
+            {
+              backgroundColor: overlay.color,
+              opacity: Math.min(0.22, (overlay.saturation - 1) * 0.28 * strength),
             },
           ]}
         />
@@ -154,6 +176,29 @@ export function LookOverlay({ overlay, strength = 1 }: Props) {
             },
           ]}
         />
+      ) : null}
+
+      {toonEdges > 0.05 ? (
+        <Svg width="100%" height="100%" style={StyleSheet.absoluteFill}>
+          <Defs>
+            <RadialGradient id="irisToonInk" cx="50%" cy="50%" rx="70%" ry="70%">
+              <Stop offset="0" stopColor="#000" stopOpacity={0} />
+              <Stop offset="0.55" stopColor="#000" stopOpacity={toonEdges * 0.08} />
+              <Stop offset="1" stopColor="#000" stopOpacity={Math.min(0.45, toonEdges * 0.42)} />
+            </RadialGradient>
+          </Defs>
+          <Rect x="0" y="0" width="100%" height="100%" fill="url(#irisToonInk)" />
+          <Rect
+            x="2%"
+            y="2%"
+            width="96%"
+            height="96%"
+            fill="none"
+            stroke="#0A0A0A"
+            strokeWidth={1 + toonEdges * 2.5}
+            strokeOpacity={Math.min(0.55, toonEdges * 0.5)}
+          />
+        </Svg>
       ) : null}
 
       {overlay.vignette > 0 ? (

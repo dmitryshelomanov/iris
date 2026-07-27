@@ -52,6 +52,9 @@ export async function bakeLookIntoVideo(
     leak: overlay.leak * strength,
     stamp: overlay.stamp * strength,
     stampText: formatLookStampDate(),
+    smooth: overlay.smooth * strength,
+    posterize: overlay.posterize * strength,
+    edges: overlay.edges * strength,
   });
 
   return {

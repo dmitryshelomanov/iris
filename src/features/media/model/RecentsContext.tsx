@@ -8,7 +8,13 @@ import {
   type ReactNode,
 } from 'react';
 
-import { loadRecents, pushRecent, removeRecent, type RecentCapture } from '@/entities/capture';
+import {
+  loadRecents,
+  pushRecent,
+  removeRecent,
+  updateRecent,
+  type RecentCapture,
+} from '@/entities/capture';
 
 type RecentsContextValue = {
   ready: boolean;
@@ -16,6 +22,10 @@ type RecentsContextValue = {
   lastShot: RecentCapture | null;
   addCapture: (entry: Omit<RecentCapture, 'id' | 'createdAt'> & { id?: string }) => Promise<void>;
   dismiss: (id: string) => Promise<void>;
+  patchCapture: (
+    id: string,
+    patch: Partial<Omit<RecentCapture, 'id' | 'createdAt'>>,
+  ) => Promise<void>;
   refresh: () => Promise<void>;
 };
 
@@ -54,6 +64,14 @@ export function RecentsProvider({ children }: { children: ReactNode }) {
     setRecents(list);
   }, []);
 
+  const patchCapture = useCallback(
+    async (id: string, patch: Partial<Omit<RecentCapture, 'id' | 'createdAt'>>) => {
+      const list = await updateRecent(id, patch);
+      setRecents(list);
+    },
+    [],
+  );
+
   const value = useMemo<RecentsContextValue>(
     () => ({
       ready,
@@ -61,9 +79,10 @@ export function RecentsProvider({ children }: { children: ReactNode }) {
       lastShot: recents[0] ?? null,
       addCapture,
       dismiss,
+      patchCapture,
       refresh,
     }),
-    [ready, recents, addCapture, dismiss, refresh],
+    [ready, recents, addCapture, dismiss, patchCapture, refresh],
   );
 
   return <RecentsContext.Provider value={value}>{children}</RecentsContext.Provider>;

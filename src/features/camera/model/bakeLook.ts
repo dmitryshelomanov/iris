@@ -11,6 +11,7 @@ import {
 import type { LookOverlay } from './presets';
 import { formatLookStampDate } from './presets';
 import { buildGradeMatrix, hexToRgbaTuple, needsLookBake } from './gradeMatrix';
+import { applyToonPass, needsToonPass } from './toonBake';
 
 export type BakeLookResult = {
   path: string;
@@ -129,6 +130,11 @@ export async function bakeLookIntoPhoto(
     paint.setColor(hexToRgba(overlay.highlights, highlightsOpacity));
     paint.setBlendMode(BlendMode.Screen);
     canvas.drawRect(Skia.XYWHRect(0, 0, width, height), paint);
+  }
+
+  if (needsToonPass(overlay, strength)) {
+    const graded = surface.makeImageSnapshot();
+    applyToonPass(canvas, graded, overlay, strength);
   }
 
   const vig = overlay.vignette * strength;

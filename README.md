@@ -31,12 +31,13 @@ npm start              # expo start --dev-client
 
 Useful scripts:
 
-| Script               | Purpose                     |
-| -------------------- | --------------------------- |
-| `npm start`          | Metro + Dev Client          |
-| `npm run ios`        | Native iOS build and launch |
-| `npm run lint:types` | Typecheck (`tsc --noEmit`)  |
-| `npm run format`     | Prettier write              |
+| Script               | Purpose                                       |
+| -------------------- | --------------------------------------------- |
+| `npm start`          | Metro + Dev Client                            |
+| `npm run ios`        | Native Debug build and launch                 |
+| `npm run ios:prod`   | Release build on a physical device (no Metro) |
+| `npm run lint:types` | Typecheck (`tsc --noEmit`)                    |
+| `npm run format`     | Prettier write                                |
 
 ## Stack
 

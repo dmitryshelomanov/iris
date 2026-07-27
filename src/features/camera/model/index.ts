@@ -52,6 +52,7 @@ export type { BakeLookResult } from './bakeLook';
 export { bakeLookIntoVideo } from './bakeLookVideo';
 export type { BakeVideoLookResult } from './bakeLookVideo';
 export { buildGradeMatrix } from './gradeMatrix';
+export { needsToonPass } from './toonBake';
 export {
   synthesizeLiveHistogram,
   zebraIntensityFromExposure,

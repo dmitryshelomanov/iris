@@ -34,6 +34,12 @@ export type LookOverlay = {
   leak: number;
   /** Orange digicam date stamp opacity 0…1 */
   stamp: number;
+  /** Flatten / blur before posterize 0…1 (cartoon-ish) */
+  smooth: number;
+  /** Color quantization strength 0…1 (maps to ~32…4 levels) */
+  posterize: number;
+  /** Edge / ink line strength 0…1 */
+  edges: number;
 };
 
 export type LookPreset = {
@@ -62,6 +68,9 @@ const CLEAN: LookOverlay = {
   bloom: 0,
   leak: 0,
   stamp: 0,
+  smooth: 0,
+  posterize: 0,
+  edges: 0,
 };
 
 export const LOOK_PRESETS: LookPreset[] = [
@@ -94,6 +103,9 @@ export const LOOK_PRESETS: LookPreset[] = [
       bloom: 0,
       leak: 0,
       stamp: 0,
+      smooth: 0,
+      posterize: 0,
+      edges: 0,
     },
   },
   {
@@ -118,6 +130,9 @@ export const LOOK_PRESETS: LookPreset[] = [
       bloom: 0,
       leak: 0,
       stamp: 0,
+      smooth: 0,
+      posterize: 0,
+      edges: 0,
     },
   },
   {
@@ -142,6 +157,9 @@ export const LOOK_PRESETS: LookPreset[] = [
       bloom: 0,
       leak: 0,
       stamp: 0,
+      smooth: 0,
+      posterize: 0,
+      edges: 0,
     },
   },
   {
@@ -166,6 +184,9 @@ export const LOOK_PRESETS: LookPreset[] = [
       bloom: 0,
       leak: 0,
       stamp: 0,
+      smooth: 0,
+      posterize: 0,
+      edges: 0,
     },
   },
   {
@@ -190,6 +211,9 @@ export const LOOK_PRESETS: LookPreset[] = [
       bloom: 0,
       leak: 0,
       stamp: 0,
+      smooth: 0,
+      posterize: 0,
+      edges: 0,
     },
   },
   {
@@ -214,6 +238,9 @@ export const LOOK_PRESETS: LookPreset[] = [
       bloom: 0,
       leak: 0,
       stamp: 0,
+      smooth: 0,
+      posterize: 0,
+      edges: 0,
     },
   },
   {
@@ -238,6 +265,9 @@ export const LOOK_PRESETS: LookPreset[] = [
       bloom: 0,
       leak: 0,
       stamp: 0,
+      smooth: 0,
+      posterize: 0,
+      edges: 0,
     },
   },
   {
@@ -262,6 +292,9 @@ export const LOOK_PRESETS: LookPreset[] = [
       bloom: 0,
       leak: 0,
       stamp: 0,
+      smooth: 0,
+      posterize: 0,
+      edges: 0,
     },
   },
   {
@@ -286,6 +319,9 @@ export const LOOK_PRESETS: LookPreset[] = [
       bloom: 0,
       leak: 0,
       stamp: 0,
+      smooth: 0,
+      posterize: 0,
+      edges: 0,
     },
   },
   {
@@ -310,6 +346,63 @@ export const LOOK_PRESETS: LookPreset[] = [
       bloom: 0,
       leak: 0,
       stamp: 0,
+      smooth: 0,
+      posterize: 0,
+      edges: 0,
+    },
+  },
+  {
+    id: 'tn',
+    label: 'TN',
+    hint: 'Toon',
+    camera: { wbKelvin: 5600, wbTint: 8, ev: 0.15 },
+    overlay: {
+      ...CLEAN,
+      contrast: 1.15,
+      saturation: 1.2,
+      brightness: 0.02,
+      warmth: 0.08,
+      color: '#FFE566',
+      opacity: 0.08,
+      smooth: 0.55,
+      posterize: 0.65,
+      edges: 0.45,
+    },
+  },
+  {
+    id: 'cm',
+    label: 'CM',
+    hint: 'Comic',
+    camera: { wbKelvin: 5400, wbTint: 0, ev: -0.1 },
+    overlay: {
+      ...CLEAN,
+      contrast: 1.3,
+      saturation: 0.95,
+      brightness: 0.01,
+      warmth: -0.05,
+      color: '#1A1A1A',
+      opacity: 0.06,
+      smooth: 0.25,
+      posterize: 0.8,
+      edges: 0.85,
+    },
+  },
+  {
+    id: 'pp',
+    label: 'PP',
+    hint: 'Pop',
+    camera: { wbKelvin: 5800, wbTint: 16, ev: 0.2 },
+    overlay: {
+      ...CLEAN,
+      contrast: 1.2,
+      saturation: 1.45,
+      brightness: 0.03,
+      warmth: 0.18,
+      color: '#FF4FD8',
+      opacity: 0.1,
+      smooth: 0.15,
+      posterize: 0.7,
+      edges: 0.25,
     },
   },
 ];

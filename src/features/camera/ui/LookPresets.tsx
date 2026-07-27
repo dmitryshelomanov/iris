@@ -22,6 +22,9 @@ type Props = {
 function swatchColor(look: LookPreset) {
   if (look.id === 'none') return '#D4D4D4';
   if (look.id === 'as' || look.id === 'tx') return '#2A2A2E';
+  if (look.id === 'tn') return '#FFE566';
+  if (look.id === 'cm') return '#1A1A1A';
+  if (look.id === 'pp') return '#FF4FD8';
   return look.overlay.color;
 }
 

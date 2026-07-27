@@ -15,7 +15,7 @@ export type AspectRatio = '4:3' | '16:9';
 export type TimerSeconds = 0 | 3 | 10;
 
 export type LookPresetId =
-  'none' | 'kp' | 'kg' | 'ke' | 'fs' | 'fp' | 'ag' | 'as' | 'pd' | 'tc' | 'tx';
+  'none' | 'kp' | 'kg' | 'ke' | 'fs' | 'fp' | 'ag' | 'as' | 'pd' | 'tc' | 'tx' | 'tn' | 'cm' | 'pp';
 
 export type LensKind = 'optical' | 'crop' | 'front' | 'multi';
 

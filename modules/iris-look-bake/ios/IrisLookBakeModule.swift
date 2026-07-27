@@ -15,6 +15,9 @@ struct BakeLookVideoOptions: Record {
   @Field var leak: Double = 0
   @Field var stamp: Double = 0
   @Field var stampText: String = ""
+  @Field var smooth: Double = 0
+  @Field var posterize: Double = 0
+  @Field var edges: Double = 0
 }
 
 public class IrisLookBakeModule: Module {
@@ -74,6 +77,8 @@ public class IrisLookBakeModule: Module {
       image = blendColor(image, rgba: options.shadows, filterName: "CIMultiplyBlendMode")
       image = blendColor(image, rgba: options.tint, filterName: "CISoftLightBlendMode")
       image = blendColor(image, rgba: options.highlights, filterName: "CIScreenBlendMode")
+
+      image = applyToon(image, smooth: options.smooth, posterize: options.posterize, edges: options.edges)
 
       if options.vignette > 0.01 {
         image = image.applyingFilter("CIVignette", parameters: [
@@ -162,6 +167,54 @@ public class IrisLookBakeModule: Module {
     filter.setValue(colorImage, forKey: kCIInputImageKey)
     filter.setValue(image, forKey: kCIInputBackgroundImageKey)
     return filter.outputImage?.cropped(to: image.extent) ?? image
+  }
+
+  private static func applyToon(
+    _ image: CIImage,
+    smooth: Double,
+    posterize: Double,
+    edges: Double
+  ) -> CIImage {
+    guard smooth > 0.01 || posterize > 0.01 || edges > 0.01 else { return image }
+    let extent = image.extent
+    var result = image.clampedToExtent()
+
+    if smooth > 0.01 {
+      let radius = 0.6 + smooth * 10.0
+      result = result
+        .applyingFilter("CIGaussianBlur", parameters: [kCIInputRadiusKey: radius])
+        .cropped(to: extent)
+        .clampedToExtent()
+    }
+
+    if posterize > 0.01 {
+      let levels = max(2.0, 32.0 - posterize * 28.0)
+      result = result
+        .applyingFilter("CIColorPosterize", parameters: ["inputLevels": levels])
+        .cropped(to: extent)
+        .clampedToExtent()
+    }
+
+    if edges > 0.01 {
+      let edgeImage = result
+        .applyingFilter("CIEdges", parameters: [kCIInputIntensityKey: 1.0 + edges * 8.0])
+        .cropped(to: extent)
+      // Invert edges toward black ink and multiply over the flat color.
+      let ink = edgeImage.applyingFilter("CIColorInvert").applyingFilter("CIColorMatrix", parameters: [
+        "inputRVector": CIVector(x: 1, y: 0, z: 0, w: 0),
+        "inputGVector": CIVector(x: 0, y: 1, z: 0, w: 0),
+        "inputBVector": CIVector(x: 0, y: 0, z: 1, w: 0),
+        "inputAVector": CIVector(x: 0, y: 0, z: 0, w: min(1.0, edges * 1.15)),
+        "inputBiasVector": CIVector(x: 0, y: 0, z: 0, w: 0),
+      ])
+      if let multiply = CIFilter(name: "CIMultiplyBlendMode") {
+        multiply.setValue(ink, forKey: kCIInputImageKey)
+        multiply.setValue(result.cropped(to: extent), forKey: kCIInputBackgroundImageKey)
+        result = (multiply.outputImage ?? result).cropped(to: extent).clampedToExtent()
+      }
+    }
+
+    return result.cropped(to: extent)
   }
 
   private static func applyGrain(_ image: CIImage, amount: Double, time: Double) -> CIImage {
