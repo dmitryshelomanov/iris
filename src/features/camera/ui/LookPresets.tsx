@@ -76,7 +76,7 @@ export function LookPresets({ activeId, scene, onSceneChange, onChange }: Props)
             <Pressable
               key={s.id}
               onPress={() => {
-                void hapticSelect();
+                hapticSelect();
                 onSceneChange(s.id);
               }}
               className={cn('rounded-md px-2 py-1', active ? 'bg-white/20' : 'bg-black/30')}
@@ -112,7 +112,7 @@ export function LookPresets({ activeId, scene, onSceneChange, onChange }: Props)
               look={look}
               active={active}
               onPress={() => {
-                void hapticSelect();
+                hapticSelect();
                 onChange(look.id);
               }}
             />

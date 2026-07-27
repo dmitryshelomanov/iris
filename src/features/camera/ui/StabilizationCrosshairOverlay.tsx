@@ -10,15 +10,25 @@ const VISIBLE_MAX = 18;
 const OFFSET_PER_DEG = 1.4;
 const MAX_OFFSET = 28;
 
+type Props = {
+  /** When false (background / left camera), pause motion + haptics. */
+  active?: boolean;
+};
+
 /**
  * Center reticle with light roll guidance (distinct from the Pro horizon Level).
  */
-export function StabilizationCrosshairOverlay() {
+export function StabilizationCrosshairOverlay({ active = true }: Props) {
   const [roll, setRoll] = useState(0);
   const [pitch, setPitch] = useState(0);
   const wasLeveled = useRef(false);
 
   useEffect(() => {
+    if (!active) {
+      wasLeveled.current = false;
+      return;
+    }
+
     let mounted = true;
     DeviceMotion.setUpdateInterval(50);
     const sub = DeviceMotion.addListener((data) => {
@@ -29,7 +39,7 @@ export function StabilizationCrosshairOverlay() {
       const nextPitch = (beta * 180) / Math.PI;
       const leveled = Math.abs(nextRoll) < LEVEL_THRESHOLD && Math.abs(nextPitch - 90) > 20;
       if (leveled && !wasLeveled.current) {
-        void hapticLevelSnap();
+        hapticLevelSnap();
       }
       wasLeveled.current = leveled;
       setRoll(nextRoll);
@@ -39,7 +49,7 @@ export function StabilizationCrosshairOverlay() {
       mounted = false;
       sub.remove();
     };
-  }, []);
+  }, [active]);
 
   const absRoll = Math.abs(roll);
   const showTilt = absRoll <= VISIBLE_MAX;

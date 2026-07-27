@@ -113,7 +113,7 @@ export function ZoomSwitcher({
       const hit = marks.find((m) => Math.abs(m - next) < 0.07);
       if (hit != null && lastHapticMajor.current !== hit) {
         lastHapticMajor.current = hit;
-        void hapticSelect();
+        hapticSelect();
       } else if (hit == null) {
         lastHapticMajor.current = null;
       }

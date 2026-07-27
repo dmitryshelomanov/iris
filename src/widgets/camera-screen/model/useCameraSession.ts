@@ -75,6 +75,7 @@ export function useCameraSession({
         : settings.qualityPrioritization,
   });
 
+  // Audio track is recorded whenever the mic is granted (Vision Camera requires permission).
   const videoOutput = useVideoOutput({
     targetResolution: videoResolutionForAspect(settings.aspect),
     enableAudio: mic.hasPermission,

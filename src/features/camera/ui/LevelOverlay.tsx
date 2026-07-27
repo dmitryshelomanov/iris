@@ -15,16 +15,26 @@ const SEGMENT_W = 36;
 const GAP = 5;
 const MERGED_W = SEGMENT_W * 3 + GAP * 2;
 
+type Props = {
+  /** When false (background / left camera), pause motion + haptics. */
+  active?: boolean;
+};
+
 /**
  * Native-style horizon level (iOS Camera):
  * fixed left/right ticks + a center segment that drifts with roll.
  * When level, segments merge into a single yellow line.
  */
-export function LevelOverlay() {
+export function LevelOverlay({ active = true }: Props) {
   const [roll, setRoll] = useState(0);
   const wasLeveled = useRef(false);
 
   useEffect(() => {
+    if (!active) {
+      wasLeveled.current = false;
+      return;
+    }
+
     let mounted = true;
     DeviceMotion.setUpdateInterval(50);
     const sub = DeviceMotion.addListener((data) => {
@@ -34,7 +44,7 @@ export function LevelOverlay() {
       const abs = Math.abs(nextRoll);
       const leveled = abs <= VISIBLE_MAX && abs < LEVEL_THRESHOLD;
       if (leveled && !wasLeveled.current) {
-        void hapticLevelSnap();
+        hapticLevelSnap();
       }
       wasLeveled.current = leveled;
       setRoll(nextRoll);
@@ -43,7 +53,7 @@ export function LevelOverlay() {
       mounted = false;
       sub.remove();
     };
-  }, []);
+  }, [active]);
 
   const abs = Math.abs(roll);
   if (abs > VISIBLE_MAX) return null;

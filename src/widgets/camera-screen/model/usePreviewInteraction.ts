@@ -59,7 +59,7 @@ export function usePreviewInteraction({
       if (manualEnabled || countdown != null || isCapturing) return;
       setFocusReticle({ x: locationX, y: locationY, locked: true });
       setAeAfLocked(true);
-      void hapticFocusLock();
+      hapticFocusLock();
       setStatus('AE/AF locked');
       try {
         await cameraRef.current?.focusTo(

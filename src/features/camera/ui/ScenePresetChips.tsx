@@ -26,7 +26,7 @@ export function ScenePresetChips({ presets, onApply, onOpenAll }: Props) {
         <Pressable
           key={preset.id}
           onPress={() => {
-            void hapticSelect();
+            hapticSelect();
             onApply(preset);
           }}
           className="rounded-full border border-white/15 bg-black/40 px-2.5 py-1"

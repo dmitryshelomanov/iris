@@ -157,7 +157,7 @@ export function useCameraCapture({
     setIsCapturing(true);
     const burst = mode === 'photo' ? settings.burstCount : 1;
     setStatus(burst > 1 ? `Burst ${burst}×…` : 'Capturing…');
-    void hapticShutter();
+    hapticShutter();
 
     try {
       for (let i = 0; i < burst; i += 1) {
@@ -249,13 +249,13 @@ export function useCameraCapture({
         setStatus('Microphone needed for video');
         return;
       }
-      setStatus('Mic ready — tap to record');
+      setStatus('Mic ready — audio on · tap to record');
       return;
     }
 
     try {
       setStatus('Recording… · tap to stop');
-      void hapticRecordStart();
+      hapticRecordStart();
       const recorder = await videoOutput.createRecorder({});
       recorderRef.current = recorder;
       setIsRecording(true);
@@ -295,7 +295,7 @@ export function useCameraCapture({
 
     stoppingRef.current = true;
     setStatus('Stopping…');
-    void hapticRecordStop();
+    hapticRecordStop();
     try {
       await recorder.stopRecording();
     } catch (error) {

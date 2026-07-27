@@ -1,5 +1,5 @@
 import * as Haptics from 'expo-haptics';
-import { Platform } from 'react-native';
+import { AppState, Platform } from 'react-native';
 import IrisLookBake from '../../../../modules/iris-look-bake';
 
 async function safe(run: () => Promise<void> | void) {
@@ -54,6 +54,8 @@ const LEVEL_SNAP_COOLDOWN_MS = 450;
 
 /** Soft tick when level / crosshair guides snap into alignment. */
 export function hapticLevelSnap() {
+  // DeviceMotion can keep firing while backgrounded — never buzz off-camera.
+  if (AppState.currentState !== 'active') return Promise.resolve();
   const now = Date.now();
   if (now - lastLevelSnapAt < LEVEL_SNAP_COOLDOWN_MS) return Promise.resolve();
   lastLevelSnapAt = now;

@@ -6,8 +6,8 @@ import {
   Settings,
   SlidersHorizontal,
 } from 'lucide-react-native';
-import { useCallback, useRef, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { AppState, Pressable, StyleSheet, View, type AppStateStatus } from 'react-native';
 import { GestureDetector } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Camera, useCameraPermission, useMicrophonePermission } from 'react-native-vision-camera';
@@ -71,7 +71,20 @@ export function CameraScreen() {
   const [reviewOpen, setReviewOpen] = useState(false);
   const [postCaptureOpen, setPostCaptureOpen] = useState(false);
   const [lookScene, setLookScene] = useState<LookSceneId>('all');
+  const [appState, setAppState] = useState<AppStateStatus>(AppState.currentState);
   const isCapturingRef = useRef(false);
+  const cameraActive = isFocused && appState === 'active';
+
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', setAppState);
+    return () => sub.remove();
+  }, []);
+
+  // Ask for mic early so video output can enableAudio before the first record.
+  useEffect(() => {
+    if (!hasPermission || mic.hasPermission || !mic.canRequestPermission) return;
+    mic.requestPermission();
+  }, [hasPermission, mic.hasPermission, mic.canRequestPermission, mic.requestPermission]);
 
   const setZoomRef = useRef<(next: number | ((prev: number) => number)) => void>(() => {});
   const setZoom = useCallback((next: number | ((prev: number) => number)) => {
@@ -169,7 +182,7 @@ export function CameraScreen() {
   });
 
   useVolumeShutter({
-    enabled: isFocused && settings.volumeShutter && hasPermission && !!session.device,
+    enabled: cameraActive && settings.volumeShutter && hasPermission && !!session.device,
     onShutter: () => {
       void capture.onCapture();
     },
@@ -196,7 +209,7 @@ export function CameraScreen() {
         ref={session.cameraRef}
         style={StyleSheet.absoluteFill}
         device={device}
-        isActive={isFocused}
+        isActive={cameraActive}
         outputs={[session.photoOutput, session.videoOutput]}
         constraints={session.constraints}
         zoom={zoom.zoom}
@@ -223,9 +236,9 @@ export function CameraScreen() {
 
       {settings.showAspectCrop ? <AspectCropOverlay aspect={settings.aspect} /> : null}
       <LookOverlay overlay={capture.look.overlay} strength={settings.lookStrength} />
-      {settings.showCrosshair ? <StabilizationCrosshairOverlay /> : null}
+      {settings.showCrosshair ? <StabilizationCrosshairOverlay active={cameraActive} /> : null}
       {settings.showGrid ? <GridOverlay /> : null}
-      {settings.showLevel ? <LevelOverlay /> : null}
+      {settings.showLevel ? <LevelOverlay active={cameraActive} /> : null}
       {settings.showZebras ? <ZebraOverlay intensity={overlays.zebraIntensity} /> : null}
       {settings.showPeaking ? (
         <PeakingOverlay
