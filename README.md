@@ -102,4 +102,6 @@ After changing icons or splash, rebuild the native app (`npm run ios`). If the h
 
 ## License
 
-Private — no public repository yet.
+[MIT](LICENSE) © Dmitry Shelomanov
+
+Repository: [github.com/dmitryshelomanov/iris](https://github.com/dmitryshelomanov/iris)
