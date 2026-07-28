@@ -16,8 +16,6 @@ import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 import expo.modules.kotlin.records.Field
 import expo.modules.kotlin.records.Record
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import java.io.File
 import java.nio.ByteBuffer
 import kotlin.math.max
@@ -70,9 +68,7 @@ class IrisLookBakeModule : Module() {
     Name("IrisLookBake")
 
     AsyncFunction("bakeLookIntoVideo") { inputPath: String, options: BakeLookVideoOptions ->
-      withContext(Dispatchers.Default) {
-        bakeLookIntoVideo(appContext.reactContext, inputPath, options)
-      }
+      bakeLookIntoVideo(appContext.reactContext, inputPath, options)
     }
 
     // iOS-only path; Android uses expo-haptics from JS.
