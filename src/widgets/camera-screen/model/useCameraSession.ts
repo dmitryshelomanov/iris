@@ -23,6 +23,31 @@ import {
   type LensOption,
 } from '@/features/camera';
 
+function pickFlipTarget(
+  lenses: LensOption[],
+  targetPosition: 'front' | 'back',
+): LensOption | undefined {
+  if (targetPosition === 'back') {
+    const wide = lenses.find(
+      (l) => l.position === 'back' && l.deviceType === 'wide-angle' && l.isNative,
+    );
+    if (wide) return wide;
+  }
+  return (
+    lenses.find((l) => l.position === targetPosition && l.isNative) ??
+    lenses.find((l) => l.position === targetPosition)
+  );
+}
+
+function pickPreferredLens(lenses: LensOption[]): LensOption {
+  return (
+    lenses.find((l) => l.kind === 'multi') ??
+    lenses.find((l) => l.position === 'back' && l.deviceType === 'wide-angle' && l.isNative) ??
+    lenses.find((l) => l.position === 'back' && l.isNative) ??
+    lenses[0]
+  );
+}
+
 type Options = {
   mode: CaptureMode;
   settings: CaptureSettings;
@@ -36,6 +61,7 @@ export function useCameraSession({ mode, settings, setZoom, setStatus, patchSett
   const devices = useCameraDevices();
   const lenses = useMemo(() => buildLensCatalog(devices), [devices]);
   const [activeLensId, setActiveLensId] = useState<LensId | undefined>(undefined);
+  /** Bump counter — re-run manual apply when the camera controller attaches after session start. */
   const [controllerReady, setControllerReady] = useState(0);
   const [sessionReady, setSessionReady] = useState(false);
 
@@ -140,12 +166,7 @@ export function useCameraSession({ mode, settings, setZoom, setStatus, patchSett
     if (lenses.length === 0) return;
     const current = activeLens;
     const targetPosition = current?.position === 'front' ? 'back' : 'front';
-    const next =
-      (targetPosition === 'back'
-        ? lenses.find((l) => l.position === 'back' && l.deviceType === 'wide-angle' && l.isNative)
-        : undefined) ??
-      lenses.find((l) => l.position === targetPosition && l.isNative) ??
-      lenses.find((l) => l.position === targetPosition);
+    const next = pickFlipTarget(lenses, targetPosition);
     if (next) onSelectLens(next);
   }, [activeLens, lenses, onSelectLens]);
 
@@ -154,11 +175,7 @@ export function useCameraSession({ mode, settings, setZoom, setStatus, patchSett
     const stillValid = activeLensId != null && lenses.some((l) => l.id === activeLensId);
     if (stillValid) return;
 
-    const preferred =
-      lenses.find((l) => l.kind === 'multi') ??
-      lenses.find((l) => l.position === 'back' && l.deviceType === 'wide-angle' && l.isNative) ??
-      lenses.find((l) => l.position === 'back' && l.isNative) ??
-      lenses[0];
+    const preferred = pickPreferredLens(lenses);
     setActiveLensId(preferred.id);
     setZoom(preferred.zoom);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -166,11 +183,7 @@ export function useCameraSession({ mode, settings, setZoom, setStatus, patchSett
 
   useEffect(() => {
     setSessionReady(false);
-  }, [device?.id]);
-
-  useEffect(() => {
-    setSessionReady(false);
-  }, [photoOutput, videoOutput]);
+  }, [device?.id, photoOutput, videoOutput]);
 
   useEffect(() => {
     if (!activeLens || !device) return;

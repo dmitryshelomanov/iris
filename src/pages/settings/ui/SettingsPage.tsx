@@ -77,6 +77,14 @@ export function SettingsPage() {
         />
         <Separator />
         <ToggleRow
+          label="Shutter sound"
+          value={settings.shutterSound}
+          onChange={(shutterSound) => patchSettings({ shutterSound })}
+        />
+      </Section>
+
+      <Section title="Video">
+        <ToggleRow
           label="Video stabilization"
           hint="Cinematic EIS — crops FoV, adds latency; weaker at 60 fps"
           value={settings.videoStabilization}
@@ -98,12 +106,6 @@ export function SettingsPage() {
             }
           />
         </Row>
-        <Separator />
-        <ToggleRow
-          label="Shutter sound"
-          value={settings.shutterSound}
-          onChange={(shutterSound) => patchSettings({ shutterSound })}
-        />
       </Section>
 
       <Section title="Capture aids">

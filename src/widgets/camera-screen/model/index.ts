@@ -3,5 +3,7 @@ export { useCameraZoom } from './useCameraZoom';
 export { useCameraManual } from './useCameraManual';
 export { useCameraPresets } from './useCameraPresets';
 export { useCameraCapture } from './useCameraCapture';
+export { usePhotoCapture } from './usePhotoCapture';
+export { useVideoCapture } from './useVideoCapture';
 export { usePreviewInteraction } from './usePreviewInteraction';
 export { useLiveOverlays } from './useLiveOverlays';

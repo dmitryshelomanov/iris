@@ -7,6 +7,8 @@ import {
   type ManualControlsState,
 } from '@/features/camera';
 
+const PEAKING_POLL_MS = 350;
+
 type Options = {
   cameraRef: RefObject<CameraRef | null>;
   settings: CaptureSettings;
@@ -43,7 +45,7 @@ export function useLiveOverlays({
     };
 
     tick();
-    const id = setInterval(tick, 350);
+    const id = setInterval(tick, PEAKING_POLL_MS);
     return () => clearInterval(id);
   }, [aeAfLocked, cameraRef, manual, sessionReady, settings.showPeaking]);
 

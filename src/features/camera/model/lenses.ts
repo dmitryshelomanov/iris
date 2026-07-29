@@ -32,11 +32,8 @@ function typeHint(type: DeviceType): string {
   }
 }
 
-function kindForType(type: DeviceType, isFront: boolean): LensKind {
-  if (isFront) return 'front';
-  if (type === 'ultra-wide-angle') return 'optical';
-  if (type === 'telephoto') return 'optical';
-  return 'optical';
+function kindForType(_type: DeviceType, isFront: boolean): LensKind {
+  return isFront ? 'front' : 'optical';
 }
 
 function isPhysicalLens(device: CameraDevice): boolean {
@@ -273,7 +270,7 @@ export function buildZoomSteps(device: CameraDevice | undefined): number[] {
   return unique.length > 0 ? unique : [Number(min.toFixed(2))];
 }
 
-/** Compact snap factors (legacy / haptics). Prefer buildZoomDialMajors for the dial. */
+/** @deprecated Alias of buildZoomDialMajors — prefer that name for dial marks. */
 export function buildZoomSnapPoints(device: CameraDevice | undefined): number[] {
   return buildZoomDialMajors(device);
 }
