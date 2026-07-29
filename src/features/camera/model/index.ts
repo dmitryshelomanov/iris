@@ -55,11 +55,11 @@ export { CaptureSettingsProvider, useCaptureSettings } from './CaptureSettingsCo
 export { resolutionForAspect, videoResolutionForAspect } from './resolutions';
 export { bakeLookIntoPhoto } from './bakeLook';
 export type { BakeLookResult } from './bakeLook';
-export { bakeLookIntoVideo } from './bakeLookVideo';
+export { bakeLookIntoVideo, cancelBakeLookIntoVideo, toFileUri, toPath } from './bakeLookVideo';
 export type { BakeVideoLookResult } from './bakeLookVideo';
 export { buildGradeMatrix } from './gradeMatrix';
 export { needsToonPass } from './toonBake';
-export { peakingIntensity } from './liveMetering';
+export { peakingIntensity } from './peaking';
 export { LOOK_SCENES, looksForScene } from './lookScenes';
 export type { LookSceneId } from './lookScenes';
 export { useVolumeShutter } from './useVolumeShutter';

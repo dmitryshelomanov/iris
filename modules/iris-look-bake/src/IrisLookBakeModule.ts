@@ -7,6 +7,8 @@ declare class IrisLookBakeModule extends NativeModule<{}> {
     inputPath: string,
     options: BakeLookVideoNativeOptions,
   ): Promise<BakeLookVideoNativeResult>;
+  /** Cancel an in-flight bake (no-op if idle). */
+  cancelBakeLookIntoVideo(): void;
   /** iOS AudioServices peek/pop/nope — works during an active camera session. */
   playSystemHaptic(kind: 'peek' | 'pop' | 'nope'): void;
 }

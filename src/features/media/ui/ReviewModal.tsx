@@ -20,12 +20,14 @@ import { fileUriExists, type RecentCapture } from '@/entities/capture';
 import {
   LOOK_PRESETS,
   LookStrengthSlider,
+  cancelBakeLookIntoVideo,
   getLookPreset,
   isLookPresetId,
   type LookPresetId,
 } from '@/features/camera';
 import { Icon } from '@/shared/ui/icon';
 import { Text } from '@/shared/ui/text';
+import { errorMessage } from '@/shared/lib/errorMessage';
 import { cn } from '@/shared/lib/utils';
 
 import { rebakeLook } from '../model/rebakeLook';
@@ -262,6 +264,18 @@ export function ReviewModal({
     }
   }, [visible, initialIndex]);
 
+  // Abort native video bake if the review sheet unmounts / closes mid-export.
+  useEffect(() => {
+    if (visible) return;
+    cancelBakeLookIntoVideo();
+  }, [visible]);
+
+  useEffect(() => {
+    return () => {
+      cancelBakeLookIntoVideo();
+    };
+  }, []);
+
   const current = recents[index] ?? recents[0] ?? null;
   const masterExists = fileUriExists(current?.rawUri);
   const canCompare =
@@ -308,7 +322,7 @@ export function ReviewModal({
       setCompare(false);
       setLookSheet(false);
     } catch (error) {
-      setRebakeError(error instanceof Error ? error.message : 'Re-bake failed');
+      setRebakeError(errorMessage(error, 'Re-bake failed'));
     } finally {
       setRebaking(false);
     }

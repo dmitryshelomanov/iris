@@ -7,6 +7,7 @@ class IrisLookBakeModule extends NativeModule<{
     inputPath: string,
     options: BakeLookVideoNativeOptions,
   ): Promise<BakeLookVideoNativeResult>;
+  cancelBakeLookIntoVideo(): void;
   playSystemHaptic(kind: 'peek' | 'pop' | 'nope'): void;
 }> {
   async bakeLookIntoVideo(
@@ -20,6 +21,8 @@ class IrisLookBakeModule extends NativeModule<{
       baked: false,
     };
   }
+
+  cancelBakeLookIntoVideo() {}
 
   playSystemHaptic(_kind: 'peek' | 'pop' | 'nope') {}
 }

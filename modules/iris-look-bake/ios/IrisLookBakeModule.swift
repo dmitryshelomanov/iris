@@ -2,6 +2,7 @@ import ExpoModulesCore
 import AudioToolbox
 import AVFoundation
 import CoreImage
+import Metal
 import UIKit
 
 struct BakeLookVideoOptions: Record {
@@ -21,11 +22,25 @@ struct BakeLookVideoOptions: Record {
 }
 
 public class IrisLookBakeModule: Module {
+  private static let bakeLock = NSLock()
+  private static var bakeInFlight = false
+  private static weak var activeExporter: AVAssetExportSession?
+  private static let sharedCIContext: CIContext = {
+    if let device = MTLCreateSystemDefaultDevice() {
+      return CIContext(mtlDevice: device, options: [.cacheIntermediates: false])
+    }
+    return CIContext(options: [.cacheIntermediates: false])
+  }()
+
   public func definition() -> ModuleDefinition {
     Name("IrisLookBake")
 
     AsyncFunction("bakeLookIntoVideo") { (inputPath: String, options: BakeLookVideoOptions) -> [String: Any] in
       try await Self.bakeLookIntoVideo(inputPath: inputPath, options: options)
+    }
+
+    Function("cancelBakeLookIntoVideo") {
+      Self.cancelActiveBake()
     }
 
     /// Peek/pop/nope via AudioServices — works while the camera session is active
@@ -42,22 +57,99 @@ public class IrisLookBakeModule: Module {
     }
   }
 
+  private static func cancelActiveBake() {
+    bakeLock.lock()
+    defer { bakeLock.unlock() }
+    activeExporter?.cancelExport()
+  }
+
+  private static func needsBake(_ options: BakeLookVideoOptions) -> Bool {
+    options.matrix.count == 20 ||
+      options.smooth > 0.01 ||
+      options.posterize > 0.01 ||
+      options.edges > 0.01 ||
+      options.vignette > 0.01 ||
+      options.grain > 0.01 ||
+      options.bloom > 0.01 ||
+      options.leak > 0.01 ||
+      options.stamp > 0.01 ||
+      (options.tint.count >= 4 && options.tint[3] > 0.01) ||
+      (options.shadows.count >= 4 && options.shadows[3] > 0.01) ||
+      (options.highlights.count >= 4 && options.highlights[3] > 0.01)
+  }
+
+  private static func passthrough(url: URL) -> [String: Any] {
+    [
+      "path": url.path,
+      "uri": url.absoluteString,
+      "baked": false,
+    ]
+  }
+
   private static func bakeLookIntoVideo(
     inputPath: String,
     options: BakeLookVideoOptions
   ) async throws -> [String: Any] {
+    bakeLock.lock()
+    if bakeInFlight {
+      bakeLock.unlock()
+      throw NSError(
+        domain: "IrisLookBake",
+        code: 5,
+        userInfo: [NSLocalizedDescriptionKey: "Look bake already in progress"]
+      )
+    }
+    bakeInFlight = true
+    bakeLock.unlock()
+
+    defer {
+      bakeLock.lock()
+      bakeInFlight = false
+      activeExporter = nil
+      bakeLock.unlock()
+    }
+
     let cleaned = inputPath.replacingOccurrences(of: "file://", with: "")
     let inputURL = URL(fileURLWithPath: cleaned)
+
+    guard FileManager.default.fileExists(atPath: inputURL.path) else {
+      throw NSError(
+        domain: "IrisLookBake",
+        code: 6,
+        userInfo: [NSLocalizedDescriptionKey: "Input video not found"]
+      )
+    }
+
+    if !needsBake(options) {
+      return passthrough(url: inputURL)
+    }
+
     let asset = AVURLAsset(url: inputURL)
 
     let videoTracks = try await asset.loadTracks(withMediaType: .video)
-    guard videoTracks.first != nil else {
+    guard let videoTrack = videoTracks.first else {
       throw NSError(
         domain: "IrisLookBake",
         code: 1,
         userInfo: [NSLocalizedDescriptionKey: "Video has no video track"]
       )
     }
+
+    let naturalSize = try await videoTrack.load(.naturalSize)
+    let preferredTransform = try await videoTrack.load(.preferredTransform)
+    let oriented = naturalSize.applying(preferredTransform)
+    let stampSize = CGSize(
+      width: max(1, abs(oriented.width).rounded()),
+      height: max(1, abs(oriented.height).rounded())
+    )
+
+    // Build stamp once — text is static for the export; avoid full-res UIKit alloc per frame.
+    let stampImage: CIImage? = {
+      guard options.stamp > 0.01, !options.stampText.isEmpty else { return nil }
+      return makeStampImage(text: options.stampText, opacity: options.stamp, size: stampSize)
+    }()
+
+    let ciContext = sharedCIContext
 
     let composition = AVMutableVideoComposition(asset: asset, applyingCIFiltersWithHandler: { request in
       let extent = request.sourceImage.extent
@@ -99,11 +191,16 @@ public class IrisLookBakeModule: Module {
         image = applyLeak(image, amount: options.leak)
       }
 
-      if options.stamp > 0.01, !options.stampText.isEmpty {
-        image = applyStamp(image, text: options.stampText, opacity: options.stamp)
+      if let stamp = stampImage {
+        let scaleX = extent.width / stamp.extent.width
+        let scaleY = extent.height / stamp.extent.height
+        let placed = stamp
+          .transformed(by: CGAffineTransform(scaleX: scaleX, y: scaleY))
+          .transformed(by: CGAffineTransform(translationX: extent.origin.x, y: extent.origin.y))
+        image = placed.composited(over: image.cropped(to: extent)).cropped(to: extent).clampedToExtent()
       }
 
-      request.finish(with: image.cropped(to: extent), context: nil)
+      request.finish(with: image.cropped(to: extent), context: ciContext)
     })
 
     let outputURL = FileManager.default.temporaryDirectory
@@ -113,7 +210,20 @@ public class IrisLookBakeModule: Module {
       try? FileManager.default.removeItem(at: outputURL)
     }
 
-    guard let exporter = AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetHighestQuality) else {
+    let presetCandidates = [
+      AVAssetExportPresetHighestQuality,
+      AVAssetExportPreset1920x1080,
+      AVAssetExportPreset1280x720,
+      AVAssetExportPresetMediumQuality,
+    ]
+    var exporter: AVAssetExportSession?
+    for preset in presetCandidates {
+      if let session = AVAssetExportSession(asset: asset, presetName: preset) {
+        exporter = session
+        break
+      }
+    }
+    guard let exporter else {
       throw NSError(
         domain: "IrisLookBake",
         code: 2,
@@ -125,6 +235,10 @@ public class IrisLookBakeModule: Module {
     exporter.outputURL = outputURL
     exporter.outputFileType = .mp4
     exporter.shouldOptimizeForNetworkUse = true
+
+    bakeLock.lock()
+    activeExporter = exporter
+    bakeLock.unlock()
 
     try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
       exporter.exportAsynchronously {
@@ -157,6 +271,38 @@ public class IrisLookBakeModule: Module {
       "uri": outputURL.absoluteString,
       "baked": true,
     ]
+  }
+
+  /// Renders stamp text once; scaled to each frame extent in the composition handler.
+  private static func makeStampImage(text: String, opacity: Double, size: CGSize) -> CIImage? {
+    let width = Int(max(1, size.width.rounded()))
+    let height = Int(max(1, size.height.rounded()))
+    let renderSize = CGSize(width: width, height: height)
+    let renderer = UIGraphicsImageRenderer(size: renderSize)
+    let uiImage = renderer.image { _ in
+      let fontSize = max(18, min(renderSize.width, renderSize.height) * 0.045)
+      let font = UIFont(name: "Courier-Bold", size: fontSize)
+        ?? UIFont(name: "CourierNewPS-BoldMT", size: fontSize)
+        ?? UIFont.monospacedSystemFont(ofSize: fontSize, weight: .bold)
+      let attrs: [NSAttributedString.Key: Any] = [
+        .font: font,
+        .foregroundColor: UIColor(red: 1, green: 0.604, blue: 0.102, alpha: CGFloat(min(0.95, opacity))),
+        .kern: 1.5,
+      ]
+      let attributed = NSAttributedString(string: text, attributes: attrs)
+      let textSize = attributed.size()
+      let pad = min(renderSize.width, renderSize.height) * 0.045
+      let origin = CGPoint(
+        x: renderSize.width - pad - textSize.width,
+        y: renderSize.height - pad - textSize.height
+      )
+      attributed.draw(at: origin)
+    }
+
+    guard let cgImage = uiImage.cgImage else { return nil }
+    // UIKit is top-left; CIImage is bottom-left — flip to align.
+    return CIImage(cgImage: cgImage)
+      .transformed(by: CGAffineTransform(a: 1, b: 0, c: 0, d: -1, tx: 0, ty: CGFloat(height)))
   }
 
   private static func blendColor(_ image: CIImage, rgba: [Double], filterName: String) -> CIImage {
@@ -318,38 +464,6 @@ public class IrisLookBakeModule: Module {
     gradient.setValue(CIColor(red: 1, green: 0.42, blue: 0.13, alpha: 0), forKey: "inputColor1")
     guard let leak = gradient.outputImage?.cropped(to: extent) else { return image }
     return screenBlend(leak, over: image)
-  }
-
-  private static func applyStamp(_ image: CIImage, text: String, opacity: Double) -> CIImage {
-    let extent = image.extent
-    let width = Int(max(1, extent.width.rounded()))
-    let height = Int(max(1, extent.height.rounded()))
-    let size = CGSize(width: width, height: height)
-
-    let renderer = UIGraphicsImageRenderer(size: size)
-    let uiImage = renderer.image { _ in
-      let fontSize = max(18, min(size.width, size.height) * 0.045)
-      let font = UIFont(name: "Courier-Bold", size: fontSize)
-        ?? UIFont(name: "CourierNewPS-BoldMT", size: fontSize)
-        ?? UIFont.monospacedSystemFont(ofSize: fontSize, weight: .bold)
-      let attrs: [NSAttributedString.Key: Any] = [
-        .font: font,
-        .foregroundColor: UIColor(red: 1, green: 0.604, blue: 0.102, alpha: CGFloat(min(0.95, opacity))),
-        .kern: 1.5,
-      ]
-      let attributed = NSAttributedString(string: text, attributes: attrs)
-      let textSize = attributed.size()
-      let pad = min(size.width, size.height) * 0.045
-      let origin = CGPoint(x: size.width - pad - textSize.width, y: size.height - pad - textSize.height)
-      attributed.draw(at: origin)
-    }
-
-    guard let cgImage = uiImage.cgImage else { return image }
-    // UIKit is top-left; CIImage is bottom-left — flip to align.
-    let stamp = CIImage(cgImage: cgImage)
-      .transformed(by: CGAffineTransform(a: 1, b: 0, c: 0, d: -1, tx: 0, ty: CGFloat(height)))
-      .transformed(by: CGAffineTransform(translationX: extent.origin.x, y: extent.origin.y))
-    return stamp.composited(over: image).cropped(to: extent)
   }
 
   private static func screenBlend(_ foreground: CIImage, over background: CIImage) -> CIImage {

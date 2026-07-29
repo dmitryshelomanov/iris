@@ -55,9 +55,14 @@ export { CaptureSettingsProvider, useCaptureSettings } from './model/CaptureSett
 export { resolutionForAspect, videoResolutionForAspect } from './model/resolutions';
 export { bakeLookIntoPhoto } from './model/bakeLook';
 export type { BakeLookResult } from './model/bakeLook';
-export { bakeLookIntoVideo } from './model/bakeLookVideo';
+export {
+  bakeLookIntoVideo,
+  cancelBakeLookIntoVideo,
+  toFileUri,
+  toPath,
+} from './model/bakeLookVideo';
 export type { BakeVideoLookResult } from './model/bakeLookVideo';
-export { peakingIntensity } from './model/liveMetering';
+export { peakingIntensity } from './model/peaking';
 export { LOOK_SCENES, looksForScene } from './model/lookScenes';
 export type { LookSceneId } from './model/lookScenes';
 export { useVolumeShutter } from './model/useVolumeShutter';

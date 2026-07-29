@@ -11,11 +11,11 @@ export type BakeVideoLookResult = {
   baked: boolean;
 };
 
-function toPath(path: string) {
+export function toPath(path: string) {
   return path.replace(/^file:\/\//, '');
 }
 
-function toFileUri(path: string) {
+export function toFileUri(path: string) {
   return path.startsWith('file://') ? path : `file://${path}`;
 }
 
@@ -62,4 +62,14 @@ export async function bakeLookIntoVideo(
     uri: toFileUri(result.uri ?? result.path),
     baked: result.baked ?? true,
   };
+}
+
+/** Cancel an in-flight native video look bake (no-op if idle). */
+export function cancelBakeLookIntoVideo() {
+  if (Platform.OS !== 'ios' && Platform.OS !== 'android') return;
+  try {
+    IrisLookBake.cancelBakeLookIntoVideo();
+  } catch {
+    // Module may be unavailable on some builds.
+  }
 }

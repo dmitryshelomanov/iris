@@ -24,10 +24,15 @@ import expo.modules.kotlin.records.Record
 import java.io.File
 import java.nio.ByteBuffer
 import java.util.Random
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.hypot
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
+
+/** Hard cap for CPU bake — unbounded full-res frames can OOM / LMK. */
+private const val MAX_BAKE_FRAMES = 180
+private const val MAX_BAKE_DURATION_MS = 90_000L
 
 class BakeLookVideoOptions : Record {
   @Field
@@ -71,11 +76,28 @@ class BakeLookVideoOptions : Record {
 }
 
 class IrisLookBakeModule : Module() {
+  private val bakeInFlight = AtomicBoolean(false)
+  @Volatile
+  private var bakeCancelled = false
+
   override fun definition() = ModuleDefinition {
     Name("IrisLookBake")
 
     AsyncFunction("bakeLookIntoVideo") { inputPath: String, options: BakeLookVideoOptions ->
-      bakeLookIntoVideo(appContext.reactContext, inputPath, options)
+      if (!bakeInFlight.compareAndSet(false, true)) {
+        throw IllegalStateException("Look bake already in progress")
+      }
+      bakeCancelled = false
+      try {
+        bakeLookIntoVideo(appContext.reactContext, inputPath, options)
+      } finally {
+        bakeInFlight.set(false)
+        bakeCancelled = false
+      }
+    }
+
+    Function("cancelBakeLookIntoVideo") {
+      bakeCancelled = true
     }
 
     // iOS-only path; Android uses expo-haptics from JS.
@@ -134,7 +156,18 @@ class IrisLookBakeModule : Module() {
 
       // Match source timing; cap encode fps at 30 for CPU bake cost.
       val fps = max(12, min(30, (if (fpsMeta > 1f) fpsMeta else 30f).roundToInt()))
-      val frameCount = max(1, ((durationMs / 1000.0) * fps).roundToInt())
+      if (durationMs > MAX_BAKE_DURATION_MS) {
+        throw IllegalStateException(
+          "Video too long for look bake (${durationMs / 1000}s; max ${MAX_BAKE_DURATION_MS / 1000}s)"
+        )
+      }
+      val uncappedFrames = max(1, ((durationMs / 1000.0) * fps).roundToInt())
+      if (uncappedFrames > MAX_BAKE_FRAMES) {
+        throw IllegalStateException(
+          "Video too long for look bake ($uncappedFrames frames; max $MAX_BAKE_FRAMES)"
+        )
+      }
+      val frameCount = uncappedFrames
       val colorMatrix = if (options.matrix.size == 20) {
         colorMatrixFromOptions(options)
       } else {
@@ -232,6 +265,28 @@ class IrisLookBakeModule : Module() {
     return cm
   }
 
+  private fun preferredColorFormat(mime: String): Int {
+    val codec = MediaCodec.createEncoderByType(mime)
+    return try {
+      val caps = codec.codecInfo.getCapabilitiesForType(mime)
+      val supported = caps.colorFormats.toSet()
+      when {
+        MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420SemiPlanar in supported ->
+          MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420SemiPlanar
+        MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible in supported ->
+          MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible
+        MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Planar in supported ->
+          MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Planar
+        else -> MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420SemiPlanar
+      }
+    } finally {
+      try {
+        codec.release()
+      } catch (_: Exception) {
+      }
+    }
+  }
+
   private fun encodeBitmapsToMp4(
     retriever: MediaMetadataRetriever,
     outFile: File,
@@ -245,46 +300,44 @@ class IrisLookBakeModule : Module() {
     options: BakeLookVideoOptions
   ) {
     val mime = MediaFormat.MIMETYPE_VIDEO_AVC
+    val colorFormat = preferredColorFormat(mime)
     val format = MediaFormat.createVideoFormat(mime, outW, outH).apply {
-      setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420SemiPlanar)
+      setInteger(MediaFormat.KEY_COLOR_FORMAT, colorFormat)
       setInteger(MediaFormat.KEY_BIT_RATE, max(2_500_000, outW * outH * 5))
       setInteger(MediaFormat.KEY_FRAME_RATE, fps)
       setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1)
     }
 
-    val encoder = MediaCodec.createEncoderByType(mime)
-    encoder.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
-    encoder.start()
-
-    val muxer = MediaMuxer(outFile.absolutePath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
-    if (rotation != 0) muxer.setOrientationHint(rotation)
-
+    var encoder: MediaCodec? = null
+    var muxer: MediaMuxer? = null
     var trackIndex = -1
     var muxerStarted = false
     val bufferInfo = MediaCodec.BufferInfo()
     val frameDurationUs = 1_000_000L / fps
     val grainRandom = Random(7)
 
-    fun drain(endOfStream: Boolean) {
-      if (endOfStream) encoder.signalEndOfInputStream()
+    fun drain(codec: MediaCodec, endOfStream: Boolean) {
+      val activeMuxer = muxer ?: return
+      if (endOfStream) codec.signalEndOfInputStream()
       while (true) {
-        val outIndex = encoder.dequeueOutputBuffer(bufferInfo, 10_000)
+        val outIndex = codec.dequeueOutputBuffer(bufferInfo, 10_000)
         when {
           outIndex == MediaCodec.INFO_TRY_AGAIN_LATER -> if (!endOfStream) break
           outIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> {
             if (muxerStarted) throw IllegalStateException("Format changed twice")
-            trackIndex = muxer.addTrack(encoder.outputFormat)
-            muxer.start()
+            trackIndex = activeMuxer.addTrack(codec.outputFormat)
+            activeMuxer.start()
             muxerStarted = true
           }
           outIndex >= 0 -> {
-            val encoded = encoder.getOutputBuffer(outIndex) ?: continue
+            val encoded = codec.getOutputBuffer(outIndex)
+              ?: throw IllegalStateException("Encoder output buffer missing")
             if (bufferInfo.size > 0 && muxerStarted) {
               encoded.position(bufferInfo.offset)
               encoded.limit(bufferInfo.offset + bufferInfo.size)
-              muxer.writeSampleData(trackIndex, encoded, bufferInfo)
+              activeMuxer.writeSampleData(trackIndex, encoded, bufferInfo)
             }
-            encoder.releaseOutputBuffer(outIndex, false)
+            codec.releaseOutputBuffer(outIndex, false)
             if (bufferInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) break
           }
         }
@@ -292,11 +345,23 @@ class IrisLookBakeModule : Module() {
     }
 
     try {
+      val activeEncoder = MediaCodec.createEncoderByType(mime)
+      encoder = activeEncoder
+      activeEncoder.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
+      activeEncoder.start()
+
+      val activeMuxer = MediaMuxer(outFile.absolutePath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
+      muxer = activeMuxer
+      if (rotation != 0) activeMuxer.setOrientationHint(rotation)
+
       var encodedFrames = 0
       for (i in 0 until frameCount) {
+        if (bakeCancelled) {
+          throw IllegalStateException("Video look bake cancelled")
+        }
         val timeUs = if (frameCount == 1) 0L else (i * durationMs * 1000L) / (frameCount - 1).coerceAtLeast(1)
         val raw = retriever.getFrameAtTime(timeUs, MediaMetadataRetriever.OPTION_CLOSEST)
-          ?: continue
+          ?: throw IllegalStateException("Failed to decode frame $i at ${timeUs}us")
         var graded = Bitmap.createBitmap(outW, outH, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(graded)
         canvas.drawBitmap(raw, null, android.graphics.Rect(0, 0, outW, outH), paint)
@@ -330,35 +395,40 @@ class IrisLookBakeModule : Module() {
         raw.recycle()
         graded.recycle()
 
-        var inputIndex = encoder.dequeueInputBuffer(50_000)
+        var inputIndex = activeEncoder.dequeueInputBuffer(50_000)
         var spins = 0
         while (inputIndex < 0 && spins < 20) {
-          drain(false)
-          inputIndex = encoder.dequeueInputBuffer(50_000)
+          drain(activeEncoder, false)
+          inputIndex = activeEncoder.dequeueInputBuffer(50_000)
           spins++
         }
-        if (inputIndex >= 0) {
-          val input = encoder.getInputBuffer(inputIndex)!!
-          input.clear()
-          input.put(yuv)
-          encoder.queueInputBuffer(inputIndex, 0, yuv.size, encodedFrames * frameDurationUs, 0)
-          encodedFrames++
+        if (inputIndex < 0) {
+          throw IllegalStateException("Encoder input buffer unavailable for frame $i")
         }
-        drain(false)
+        val input = activeEncoder.getInputBuffer(inputIndex)
+          ?: throw IllegalStateException("Encoder input buffer null for frame $i")
+        input.clear()
+        input.put(yuv)
+        activeEncoder.queueInputBuffer(inputIndex, 0, yuv.size, encodedFrames * frameDurationUs, 0)
+        encodedFrames++
+        drain(activeEncoder, false)
       }
       if (encodedFrames == 0) {
         throw IllegalStateException("No frames decoded for bake")
       }
-      drain(true)
+      if (encodedFrames != frameCount) {
+        throw IllegalStateException("Encoded $encodedFrames of $frameCount frames")
+      }
+      drain(activeEncoder, true)
     } finally {
       try {
-        encoder.stop()
-        encoder.release()
+        encoder?.stop()
+        encoder?.release()
       } catch (_: Exception) {
       }
       try {
-        if (muxerStarted) muxer.stop()
-        muxer.release()
+        if (muxerStarted) muxer?.stop()
+        muxer?.release()
       } catch (_: Exception) {
       }
     }
@@ -558,9 +628,14 @@ class IrisLookBakeModule : Module() {
   }
 
   private fun muxAudioFromOriginal(inputPath: String, videoOnlyFile: File, maxDurationMs: Long) {
-    val extractor = MediaExtractor()
+    var audioExtractor: MediaExtractor? = null
+    var videoExtractor: MediaExtractor? = null
+    var muxer: MediaMuxer? = null
+    var muxerStarted = false
     val tempOut = File(videoOnlyFile.parentFile, "iris-bake-av-${System.currentTimeMillis()}.mp4")
     try {
+      val extractor = MediaExtractor()
+      audioExtractor = extractor
       extractor.setDataSource(inputPath)
       var audioTrack = -1
       for (i in 0 until extractor.trackCount) {
@@ -573,28 +648,28 @@ class IrisLookBakeModule : Module() {
       }
       if (audioTrack < 0) return
 
-      val videoExtractor = MediaExtractor()
-      videoExtractor.setDataSource(videoOnlyFile.absolutePath)
+      val vExtractor = MediaExtractor()
+      videoExtractor = vExtractor
+      vExtractor.setDataSource(videoOnlyFile.absolutePath)
       var videoTrack = -1
-      for (i in 0 until videoExtractor.trackCount) {
-        val format = videoExtractor.getTrackFormat(i)
+      for (i in 0 until vExtractor.trackCount) {
+        val format = vExtractor.getTrackFormat(i)
         val mime = format.getString(MediaFormat.KEY_MIME) ?: continue
         if (mime.startsWith("video/")) {
           videoTrack = i
           break
         }
       }
-      if (videoTrack < 0) {
-        videoExtractor.release()
-        return
-      }
+      if (videoTrack < 0) return
 
-      val muxer = MediaMuxer(tempOut.absolutePath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
-      videoExtractor.selectTrack(videoTrack)
-      val outVideo = muxer.addTrack(videoExtractor.getTrackFormat(videoTrack))
+      val activeMuxer = MediaMuxer(tempOut.absolutePath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
+      muxer = activeMuxer
+      vExtractor.selectTrack(videoTrack)
+      val outVideo = activeMuxer.addTrack(vExtractor.getTrackFormat(videoTrack))
       extractor.selectTrack(audioTrack)
-      val outAudio = muxer.addTrack(extractor.getTrackFormat(audioTrack))
-      muxer.start()
+      val outAudio = activeMuxer.addTrack(extractor.getTrackFormat(audioTrack))
+      activeMuxer.start()
+      muxerStarted = true
 
       val buffer = ByteBuffer.allocate(1 shl 20)
       val info = MediaCodec.BufferInfo()
@@ -608,27 +683,62 @@ class IrisLookBakeModule : Module() {
           info.presentationTimeUs = ext.sampleTime
           if (trimToPts != null && info.presentationTimeUs > trimToPts) break
           info.flags = ext.sampleFlags
-          muxer.writeSampleData(track, buffer, info)
+          activeMuxer.writeSampleData(track, buffer, info)
           ext.advance()
         }
       }
 
-      copy(videoExtractor, outVideo, null)
+      copy(vExtractor, outVideo, null)
       copy(extractor, outAudio, maxPtsUs)
-      muxer.stop()
-      muxer.release()
-      videoExtractor.release()
+
+      if (muxerStarted) {
+        activeMuxer.stop()
+        muxerStarted = false
+      }
+      activeMuxer.release()
+      muxer = null
+      vExtractor.release()
+      videoExtractor = null
+      extractor.release()
+      audioExtractor = null
 
       if (tempOut.exists() && tempOut.length() > 0) {
-        videoOnlyFile.delete()
-        tempOut.renameTo(videoOnlyFile)
+        // Prefer overwrite-copy so a failed rename never deletes the baked video first.
+        try {
+          tempOut.copyTo(videoOnlyFile, overwrite = true)
+          if (!videoOnlyFile.exists() || videoOnlyFile.length() == 0L) {
+            throw IllegalStateException("Failed to replace baked video with muxed output")
+          }
+          tempOut.delete()
+        } catch (error: Exception) {
+          if (tempOut.exists() && (!videoOnlyFile.exists() || videoOnlyFile.length() == 0L)) {
+            // Last resort: rename into place when target is missing/empty.
+            if (!tempOut.renameTo(videoOnlyFile)) {
+              throw IllegalStateException("Failed to replace baked video with muxed output", error)
+            }
+          } else {
+            throw error
+          }
+        }
       }
     } catch (error: Exception) {
       if (tempOut.exists()) tempOut.delete()
       throw error
     } finally {
       try {
-        extractor.release()
+        if (muxerStarted) muxer?.stop()
+      } catch (_: Exception) {
+      }
+      try {
+        muxer?.release()
+      } catch (_: Exception) {
+      }
+      try {
+        videoExtractor?.release()
+      } catch (_: Exception) {
+      }
+      try {
+        audioExtractor?.release()
       } catch (_: Exception) {
       }
     }
