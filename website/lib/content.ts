@@ -47,3 +47,16 @@ export const screens = [
     caption: 'Settings',
   },
 ] as const;
+
+export const bakeLooks = [
+  { src: '/screenshots/looks/01.jpg', alt: 'Look bake example 1' },
+  { src: '/screenshots/looks/02.jpg', alt: 'Look bake example 2' },
+  { src: '/screenshots/looks/03.jpg', alt: 'Look bake example 3' },
+  { src: '/screenshots/looks/04.jpg', alt: 'Look bake example 4' },
+  { src: '/screenshots/looks/05.jpg', alt: 'Look bake example 5' },
+  { src: '/screenshots/looks/06.jpg', alt: 'Look bake example 6' },
+  { src: '/screenshots/looks/07.jpg', alt: 'Look bake example 7' },
+  { src: '/screenshots/looks/08.jpg', alt: 'Look bake example 8' },
+  { src: '/screenshots/looks/09.jpg', alt: 'Look bake example 9' },
+  { src: '/screenshots/looks/10.jpg', alt: 'Look bake example 10' },
+] as const;

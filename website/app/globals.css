@@ -28,3 +28,12 @@ body {
 ::selection {
   background: color-mix(in srgb, var(--color-navy) 18%, white);
 }
+
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}

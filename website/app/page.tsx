@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { SiteFooter } from '@/components/SiteFooter';
 import { SiteHeader } from '@/components/SiteHeader';
 import { withBasePath } from '@/lib/basePath';
-import { features, screens } from '@/lib/content';
+import { bakeLooks, features, screens } from '@/lib/content';
 
 export default function HomePage() {
   return (
@@ -118,27 +118,33 @@ export default function HomePage() {
             src="/screenshots/settings.jpg"
             alt="Iris settings"
           />
+        </section>
 
-          {/* Lifestyle bake — not in a phone */}
-          <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-16">
-            <div>
-              <p className="text-sm font-medium tracking-wide text-navy">Looks</p>
-              <h3 className="mt-2 font-display text-3xl tracking-tight sm:text-[2.1rem]">
-                Kodak Gold, baked in.
-              </h3>
-              <p className="mt-4 text-base leading-relaxed text-muted sm:text-lg">
-                Looks are written into the capture on device. What you see is what lands in Photos.
-              </p>
-            </div>
-            <div className="mx-auto w-full max-w-sm overflow-hidden rounded-3xl shadow-[0_24px_50px_-28px_rgba(20,22,28,0.45)]">
-              <img
-                src={withBasePath('/screenshots/bake.jpg')}
-                alt="Capture with Kodak Gold look baked in"
-                width={675}
-                height={1200}
-                className="block h-auto w-full"
-                loading="lazy"
-              />
+        {/* Look bake strip */}
+        <section id="looks" className="border-t border-line py-16 sm:py-20">
+          <div className="mx-auto max-w-5xl px-5">
+            <h2 className="font-display text-3xl tracking-tight sm:text-4xl">Looks, baked in</h2>
+            <p className="mt-3 max-w-lg text-muted">
+              Same scene — different looks written into the file.
+            </p>
+          </div>
+          <div className="mt-10 overflow-x-auto scroll-smooth scrollbar-none">
+            <div className="flex w-max snap-x snap-mandatory gap-4 px-5 pb-2 sm:gap-5 lg:px-[max(1.25rem,calc((100vw-64rem)/2+1.25rem))]">
+              {bakeLooks.map((look) => (
+                <figure
+                  key={look.src}
+                  className="w-[min(14rem,70vw)] shrink-0 snap-start overflow-hidden rounded-2xl shadow-[0_24px_50px_-28px_rgba(20,22,28,0.45)]"
+                >
+                  <img
+                    src={withBasePath(look.src)}
+                    alt={look.alt}
+                    width={576}
+                    height={1024}
+                    className="block h-auto w-full"
+                    loading="lazy"
+                  />
+                </figure>
+              ))}
             </div>
           </div>
         </section>
@@ -147,12 +153,16 @@ export default function HomePage() {
         <section id="screens" className="border-t border-line bg-wash py-16 sm:py-20">
           <div className="mx-auto max-w-5xl px-5">
             <h2 className="font-display text-3xl tracking-tight sm:text-4xl">In the app</h2>
-            <p className="mt-3 max-w-lg text-muted">Real UI from the camera, gallery, review, and settings.</p>
+            <p className="mt-3 max-w-lg text-muted">
+              Real UI from the camera, gallery, review, and settings.
+            </p>
             <div className="mt-10 grid grid-cols-2 gap-5 sm:gap-6 lg:grid-cols-4">
               {screens.map((screen) => (
                 <figure key={screen.src} className="mx-auto w-full max-w-[14.5rem]">
                   <DeviceFrame src={screen.src} alt={screen.alt} />
-                  <figcaption className="mt-3 text-center text-sm text-muted">{screen.caption}</figcaption>
+                  <figcaption className="mt-3 text-center text-sm text-muted">
+                    {screen.caption}
+                  </figcaption>
                 </figure>
               ))}
             </div>
