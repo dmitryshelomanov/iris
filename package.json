@@ -98,6 +98,7 @@
     "website:build": "npm run build --prefix website",
     "website:start": "npm run start --prefix website",
     "website:deploy": "npm run deploy --prefix website",
+    "lint": "npm run format:check && npm run lint:types",
     "lint:types": "tsc --noEmit",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

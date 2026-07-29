@@ -28,14 +28,14 @@ iOS App Store Connect docs (`docs/app-store/`) are **not** written yet — only 
 
 ## What to upload
 
-| File | Size | Destination |
-|------|------|-------------|
-| `store-screenshots/01–06.png` | 1290×2796 | App Store Connect → iPhone 6.9" class |
-| `store-screenshots/android/framed-*.png` | 1080×1920 | Play Console → Phone screenshots |
-| `play-store/feature-graphic.png` | 1024×500 | Play Console → Feature graphic |
-| `play-store/icon-512.png` | 512×512 | Play Console → Store listing icon |
-| `assets/images/icon.png` | 1024×1024 | App binary (Expo); not a separate Play upload if you use `icon-512` |
-| `docs/images/screenshot-*.png` | — | README only |
+| File                                     | Size      | Destination                                                         |
+| ---------------------------------------- | --------- | ------------------------------------------------------------------- |
+| `store-screenshots/01–06.png`            | 1290×2796 | App Store Connect → iPhone 6.9" class                               |
+| `store-screenshots/android/framed-*.png` | 1080×1920 | Play Console → Phone screenshots                                    |
+| `play-store/feature-graphic.png`         | 1024×500  | Play Console → Feature graphic                                      |
+| `play-store/icon-512.png`                | 512×512   | Play Console → Store listing icon                                   |
+| `assets/images/icon.png`                 | 1024×1024 | App binary (Expo); not a separate Play upload if you use `icon-512` |
+| `docs/images/screenshot-*.png`           | —         | README only                                                         |
 
 Privacy policy URL (both stores): https://dmitryshelomanov.github.io/iris/privacy/
 
@@ -50,11 +50,11 @@ Run `screenshots:store` before `screenshots:play` if you changed captions or iOS
 
 ## Do not commit
 
-| Path | Why |
-|------|-----|
-| `dist/android/*.apk` / `*.aab` | Local EAS build artifacts (gitignored) |
-| `build-*.apk` / `build-*.aab` | EAS local output in repo root (gitignored) |
-| `*.jks` / keystore passwords | Signing secrets — keep in EAS + password manager |
+| Path                           | Why                                              |
+| ------------------------------ | ------------------------------------------------ |
+| `dist/android/*.apk` / `*.aab` | Local EAS build artifacts (gitignored)           |
+| `build-*.apk` / `build-*.aab`  | EAS local output in repo root (gitignored)       |
+| `*.jks` / keystore passwords   | Signing secrets — keep in EAS + password manager |
 
 ## Related docs
 

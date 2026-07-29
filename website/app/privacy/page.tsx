@@ -33,25 +33,37 @@ export default function PrivacyPage() {
           <ul className="list-disc space-y-1 pl-5 text-muted">
             <li>
               Email:{' '}
-              <a className="text-navy underline-offset-2 hover:underline" href="mailto:dmitryshelomanov@mail.ru">
+              <a
+                className="text-navy underline-offset-2 hover:underline"
+                href="mailto:dmitryshelomanov@mail.ru"
+              >
                 dmitryshelomanov@mail.ru
               </a>
             </li>
             <li>
               Website:{' '}
-              <a className="text-navy underline-offset-2 hover:underline" href="https://dmitryshelomanov.github.io/">
+              <a
+                className="text-navy underline-offset-2 hover:underline"
+                href="https://dmitryshelomanov.github.io/"
+              >
                 dmitryshelomanov.github.io
               </a>
             </li>
             <li>
               App site:{' '}
-              <a className="text-navy underline-offset-2 hover:underline" href="https://dmitryshelomanov.github.io/iris/">
+              <a
+                className="text-navy underline-offset-2 hover:underline"
+                href="https://dmitryshelomanov.github.io/iris/"
+              >
                 dmitryshelomanov.github.io/iris
               </a>
             </li>
             <li>
               Repository:{' '}
-              <a className="text-navy underline-offset-2 hover:underline" href="https://github.com/dmitryshelomanov/iris">
+              <a
+                className="text-navy underline-offset-2 hover:underline"
+                href="https://github.com/dmitryshelomanov/iris"
+              >
                 github.com/dmitryshelomanov/iris
               </a>
             </li>
@@ -117,7 +129,10 @@ export default function PrivacyPage() {
           <h2 className="!mt-10 font-display text-2xl tracking-tight">Contact</h2>
           <p>
             Questions about privacy:{' '}
-            <a className="text-navy underline-offset-2 hover:underline" href="mailto:dmitryshelomanov@mail.ru">
+            <a
+              className="text-navy underline-offset-2 hover:underline"
+              href="mailto:dmitryshelomanov@mail.ru"
+            >
               dmitryshelomanov@mail.ru
             </a>
           </p>

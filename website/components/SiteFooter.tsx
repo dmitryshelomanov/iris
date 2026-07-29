@@ -18,7 +18,10 @@ export function SiteFooter() {
           <Link href="/privacy/" className="no-underline transition hover:text-ink">
             Privacy Policy
           </Link>
-          <a href="mailto:dmitryshelomanov@mail.ru" className="no-underline transition hover:text-ink">
+          <a
+            href="mailto:dmitryshelomanov@mail.ru"
+            className="no-underline transition hover:text-ink"
+          >
             Contact
           </a>
         </div>

@@ -117,8 +117,10 @@ Full asset map: [`docs/STORE-ASSETS.md`](docs/STORE-ASSETS.md). Android upload s
 | `npm run submit:android`        | EAS submit to Play (`internal` track)         |
 | `npm run screenshots:store`     | iPhone App Store marketing screenshots        |
 | `npm run screenshots:play`      | Play feature graphic + Android screenshots    |
+| `npm run lint`                  | Prettier check + typecheck                    |
 | `npm run lint:types`            | Typecheck (`tsc --noEmit`)                    |
 | `npm run format`                | Prettier write                                |
+| `npm run format:check`          | Prettier check (CI)                           |
 
 ## Stack
 
