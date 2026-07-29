@@ -143,20 +143,6 @@ export function SettingsPage() {
         />
         <Separator />
         <ToggleRow
-          label="Histogram"
-          hint="Live exposure meter + last bake"
-          value={settings.showHistogram}
-          onChange={(showHistogram) => patchSettings({ showHistogram })}
-        />
-        <Separator />
-        <ToggleRow
-          label="Zebras"
-          hint="Highlight warning stripes"
-          value={settings.showZebras}
-          onChange={(showZebras) => patchSettings({ showZebras })}
-        />
-        <Separator />
-        <ToggleRow
           label="Focus peaking"
           hint="Magenta focus-plane assist"
           value={settings.showPeaking}

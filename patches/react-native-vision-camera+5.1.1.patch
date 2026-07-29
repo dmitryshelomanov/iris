@@ -1,0 +1,36 @@
+diff --git a/node_modules/react-native-vision-camera/ios/Hybrid Objects/Outputs/HybridCameraPhotoOutput.swift b/node_modules/react-native-vision-camera/ios/Hybrid Objects/Outputs/HybridCameraPhotoOutput.swift
+index 5b82535..e061819 100644
+--- a/node_modules/react-native-vision-camera/ios/Hybrid Objects/Outputs/HybridCameraPhotoOutput.swift	
++++ b/node_modules/react-native-vision-camera/ios/Hybrid Objects/Outputs/HybridCameraPhotoOutput.swift	
+@@ -111,8 +111,8 @@ final class HybridCameraPhotoOutput: HybridCameraPhotoOutputSpec, NativeCameraOu
+       enableVirtualDeviceFusion: true,
+       location: nil)
+     let avSettings = try settings.toAVCapturePhotoSettings(for: output, withOptions: options)
+-    // Prepare the AVCapturePhotoOutput for those settings so coming up captures are faster
+-    self.output.setPreparedPhotoSettingsArray([avSettings])
++    // Explicit handler required: nil completion / nil NSError on failure force-unwraps in Swift.
++    self.output.setPreparedPhotoSettingsArray([avSettings]) { _, _ in }
+   }
+ 
+   func capturePhoto(
+@@ -189,7 +189,19 @@ final class HybridCameraPhotoOutput: HybridCameraPhotoOutputSpec, NativeCameraOu
+       let captureSettings = try settings.map {
+         try $0.toAVCapturePhotoSettings(for: self.output, withOptions: self.options)
+       }
+-      try await self.output.setPreparedPhotoSettingsArray(captureSettings)
++      try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
++        self.output.setPreparedPhotoSettingsArray(captureSettings) { prepared, error in
++          if prepared {
++            continuation.resume()
++          } else if let error {
++            continuation.resume(throwing: error)
++          } else {
++            continuation.resume(
++              throwing: RuntimeError.error(
++                withMessage: "Failed to prepare photo settings (no error provided)"))
++          }
++        }
++      }
+     }
+   }
+ }

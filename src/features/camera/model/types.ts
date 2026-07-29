@@ -89,8 +89,6 @@ export interface CaptureSettings {
   showCrosshair: boolean;
   showGrid: boolean;
   showLevel: boolean;
-  showHistogram: boolean;
-  showZebras: boolean;
   showPeaking: boolean;
   volumeShutter: boolean;
   /** Photo burst count when shutter is held / burst mode (1 = single). */
@@ -118,8 +116,6 @@ export const DEFAULT_CAPTURE_SETTINGS: CaptureSettings = {
   showCrosshair: false,
   showGrid: false,
   showLevel: false,
-  showHistogram: false,
-  showZebras: false,
   showPeaking: false,
   volumeShutter: true,
   burstCount: 1,
@@ -144,8 +140,6 @@ export const PERSISTED_CAPTURE_KEYS = [
   'showCrosshair',
   'showGrid',
   'showLevel',
-  'showHistogram',
-  'showZebras',
   'showPeaking',
   'volumeShutter',
   'burstCount',

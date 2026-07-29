@@ -8,18 +8,21 @@ type Props = {
 };
 
 /**
- * Focus peaking assist — magenta edge wash near the focus plane.
- * Approximates peaking without a frame processor by concentrating on the focus band.
+ * Focus peaking assist — magenta edge wash.
+ * Intensity from frame edge energy when available; otherwise focus-band heuristic.
  */
 export function PeakingOverlay({ intensity, focusY = 0.5 }: Props) {
-  const amount = Math.max(0, Math.min(1, intensity));
+  const amount = Math.max(0, Math.min(1, Math.round(intensity * 20) / 20));
   const { height } = useWindowDimensions();
-  if (amount < 0.04) return null;
-
+  const visible = amount >= 0.04;
   const bandTop = Math.max(8, Math.min(height - 8, focusY * height));
 
   return (
-    <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+    <View
+      pointerEvents="none"
+      style={[StyleSheet.absoluteFill, { opacity: visible ? 1 : 0 }]}
+      collapsable={false}
+    >
       <Svg width="100%" height="100%" style={StyleSheet.absoluteFill}>
         <Defs>
           <LinearGradient id="irisPeak" x1="0" y1="0" x2="0" y2="1">

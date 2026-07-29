@@ -42,7 +42,7 @@ export async function applyManualToController(
     return;
   }
 
-  // Auto 3A — clear previous locks, then apply EV / look WB.
+  // Auto 3A — resetFocus unlocks AE/AF/AWB (including look Kelvin locks).
   await controller.resetFocus();
 
   if (device.supportsExposureBias) {
@@ -58,6 +58,8 @@ export async function applyManualToController(
     });
     await controller.setWhiteBalanceLocked(gains);
   }
+  // When lockWhiteBalance is false, leave continuous AWB after resetFocus —
+  // do not re-lock previous look gains.
 }
 
 export function seedManualFromController(

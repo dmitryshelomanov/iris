@@ -18,7 +18,7 @@ export type CaptureMeta = {
 export type RecentCapture = {
   id: string;
   uri: string;
-  /** Durable pre-bake master for before/after + re-bake (photos). */
+  /** Durable pre-bake master for before/after + re-bake (photo JPEG / video MP4). */
   rawUri?: string;
   kind: 'photo' | 'video';
   createdAt: number;

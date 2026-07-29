@@ -43,9 +43,7 @@ export function useVolumeShutter({ enabled, onShutter }: Options) {
       cancelled = true;
       volumeSub?.remove();
       cameraSub?.remove();
-      import('expo-hardware-buttons')
-        .then((m) => m.default.detachCameraButton?.())
-        .catch(() => {});
+      import('expo-hardware-buttons').then((m) => m.default.detachCameraButton?.()).catch(() => {});
     };
   }, [enabled]);
 }

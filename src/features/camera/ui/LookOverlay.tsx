@@ -49,19 +49,33 @@ function matrixPreview(matrix: number[]) {
 
 /**
  * Live preview grade — approximates bakeLookIntoPhoto using the same matrix math
- * for contrast / sat / warmth / brightness, plus blend layers for split-tone effects.
+ * and strength-scaled blend layers (Multiply / SoftLight / Screen opacities).
  */
 export function LookOverlay({ overlay, strength = 1 }: Props) {
   const [stampText, setStampText] = useState(() => formatLookStampDate());
   const matrix = useMemo(() => buildGradeMatrix(overlay, strength), [overlay, strength]);
   const preview = useMemo(() => matrixPreview(matrix), [matrix]);
 
+  const shadowsOpacity = overlay.shadowsOpacity * strength;
+  const colorOpacity = overlay.opacity * strength;
+  const highlightsOpacity = overlay.highlightsOpacity * strength;
+  const vignette = overlay.vignette * strength;
+  const mono = overlay.mono * strength;
+  const grain = overlay.grain * strength;
+  const bloom = overlay.bloom * strength;
+  const leak = overlay.leak * strength;
+  const stamp = overlay.stamp * strength;
+  const toonPosterize = overlay.posterize * strength;
+  const toonEdges = overlay.edges * strength;
+  const toonSmooth = overlay.smooth * strength;
+  const isToon = toonPosterize > 0.02 || toonEdges > 0.02 || toonSmooth > 0.02;
+
   useEffect(() => {
-    if (overlay.stamp <= 0.01) return;
+    if (stamp <= 0.01) return;
     setStampText(formatLookStampDate());
     const id = setInterval(() => setStampText(formatLookStampDate()), 60_000);
     return () => clearInterval(id);
-  }, [overlay.stamp]);
+  }, [stamp]);
 
   if (!isActive(overlay)) {
     return null;
@@ -73,11 +87,6 @@ export function LookOverlay({ overlay, strength = 1 }: Props) {
   const warm = Math.max(0, preview.warmth);
   const lift = Math.max(0, preview.bias);
   const crushBias = Math.max(0, -preview.bias);
-  const effectiveGrain = overlay.grain * strength;
-  const toonPosterize = overlay.posterize * strength;
-  const toonEdges = overlay.edges * strength;
-  const toonSmooth = overlay.smooth * strength;
-  const isToon = toonPosterize > 0.02 || toonEdges > 0.02 || toonSmooth > 0.02;
 
   return (
     <View pointerEvents="none" style={StyleSheet.absoluteFill}>
@@ -119,6 +128,19 @@ export function LookOverlay({ overlay, strength = 1 }: Props) {
         />
       ) : null}
 
+      {/* Posterize wash — flat midtone bands approximating toonBake levels */}
+      {isToon && toonPosterize > 0.08 ? (
+        <View
+          style={[
+            StyleSheet.absoluteFill,
+            {
+              backgroundColor: '#1A1816',
+              opacity: Math.min(0.28, toonPosterize * 0.22),
+            },
+          ]}
+        />
+      ) : null}
+
       {warm > 0.015 ? (
         <View
           style={[StyleSheet.absoluteFill, { backgroundColor: '#E8A040', opacity: warm * 0.55 }]}
@@ -130,43 +152,46 @@ export function LookOverlay({ overlay, strength = 1 }: Props) {
         />
       ) : null}
 
-      {overlay.shadowsOpacity > 0 ? (
+      {/* Multiply-ish shadows (bake: BlendMode.Multiply) */}
+      {shadowsOpacity > 0.01 ? (
         <View
           style={[
             StyleSheet.absoluteFill,
-            { backgroundColor: overlay.shadows, opacity: overlay.shadowsOpacity * 0.85 },
+            { backgroundColor: overlay.shadows, opacity: Math.min(0.92, shadowsOpacity * 0.9) },
           ]}
         />
       ) : null}
 
-      {overlay.opacity > 0 ? (
+      {/* SoftLight tint (bake: BlendMode.SoftLight) */}
+      {colorOpacity > 0.01 ? (
         <View
           style={[
             StyleSheet.absoluteFill,
-            { backgroundColor: overlay.color, opacity: overlay.opacity },
+            { backgroundColor: overlay.color, opacity: Math.min(0.85, colorOpacity * 0.95) },
           ]}
         />
       ) : null}
 
-      {overlay.highlightsOpacity > 0 ? (
+      {/* Screen highlights (bake: BlendMode.Screen) */}
+      {highlightsOpacity > 0.01 ? (
         <View
           style={[
             StyleSheet.absoluteFill,
-            { backgroundColor: overlay.highlights, opacity: overlay.highlightsOpacity * 0.55 },
+            {
+              backgroundColor: overlay.highlights,
+              opacity: Math.min(0.7, highlightsOpacity * 0.58),
+            },
           ]}
         />
       ) : null}
 
-      {overlay.mono > 0 ? (
+      {mono > 0.01 ? (
         <View
-          style={[
-            StyleSheet.absoluteFill,
-            { backgroundColor: '#6E6E6E', opacity: overlay.mono * 0.62 },
-          ]}
+          style={[StyleSheet.absoluteFill, { backgroundColor: '#6E6E6E', opacity: mono * 0.62 }]}
         />
       ) : null}
 
-      {overlay.saturation < 0.95 && overlay.mono < 0.5 ? (
+      {overlay.saturation < 0.95 && mono < 0.5 ? (
         <View
           style={[
             StyleSheet.absoluteFill,
@@ -183,73 +208,64 @@ export function LookOverlay({ overlay, strength = 1 }: Props) {
           <Defs>
             <RadialGradient id="irisToonInk" cx="50%" cy="50%" rx="70%" ry="70%">
               <Stop offset="0" stopColor="#000" stopOpacity={0} />
-              <Stop offset="0.55" stopColor="#000" stopOpacity={toonEdges * 0.08} />
-              <Stop offset="1" stopColor="#000" stopOpacity={Math.min(0.45, toonEdges * 0.42)} />
+              <Stop offset="0.45" stopColor="#000" stopOpacity={toonEdges * 0.06} />
+              <Stop offset="0.75" stopColor="#000" stopOpacity={toonEdges * 0.18} />
+              <Stop offset="1" stopColor="#000" stopOpacity={Math.min(0.55, toonEdges * 0.48)} />
             </RadialGradient>
           </Defs>
           <Rect x="0" y="0" width="100%" height="100%" fill="url(#irisToonInk)" />
           <Rect
-            x="2%"
-            y="2%"
-            width="96%"
-            height="96%"
+            x="1.5%"
+            y="1.5%"
+            width="97%"
+            height="97%"
             fill="none"
             stroke="#0A0A0A"
-            strokeWidth={1 + toonEdges * 2.5}
-            strokeOpacity={Math.min(0.55, toonEdges * 0.5)}
+            strokeWidth={1.2 + toonEdges * 2.8}
+            strokeOpacity={Math.min(0.6, toonEdges * 0.55)}
           />
         </Svg>
       ) : null}
 
-      {overlay.vignette > 0 ? (
+      {vignette > 0.01 ? (
         <Svg width="100%" height="100%" style={StyleSheet.absoluteFill}>
           <Defs>
             <RadialGradient id="irisVignette" cx="50%" cy="48%" rx="72%" ry="72%">
-              <Stop offset="0.4" stopColor="#000" stopOpacity={0} />
-              <Stop
-                offset="1"
-                stopColor="#000"
-                stopOpacity={Math.min(0.9, overlay.vignette * 0.82)}
-              />
+              <Stop offset="0.35" stopColor="#000" stopOpacity={0} />
+              <Stop offset="1" stopColor="#000" stopOpacity={Math.min(0.92, vignette * 0.85)} />
             </RadialGradient>
           </Defs>
           <Rect x="0" y="0" width="100%" height="100%" fill="url(#irisVignette)" />
         </Svg>
       ) : null}
 
-      {effectiveGrain > 0.03 ? (
+      {/* Denser grain field approximating SoftLight+Overlay turbulence */}
+      {grain > 0.03 ? (
         <Svg width="100%" height="100%" style={StyleSheet.absoluteFill}>
-          {Array.from({ length: 360 }).map((_, i) => {
+          {Array.from({ length: 520 }).map((_, i) => {
             const x = ((i * 67) % 97) + 1.5;
             const y = ((i * 41) % 97) + 1.5;
+            const punch = i % 3 === 0;
             return (
               <Circle
                 key={i}
                 cx={`${x}%`}
                 cy={`${y}%`}
-                r={0.22 + (i % 3) * 0.1}
-                fill={i % 2 === 0 ? '#D8D4CE' : '#3A3834'}
-                opacity={effectiveGrain * (0.08 + (i % 5) * 0.02)}
+                r={0.18 + (i % 4) * 0.09}
+                fill={punch ? '#E8E4DC' : '#2A2824'}
+                opacity={grain * (punch ? 0.14 + (i % 5) * 0.03 : 0.1 + (i % 5) * 0.025)}
               />
             );
           })}
         </Svg>
       ) : null}
 
-      {overlay.bloom > 0.02 ? (
+      {bloom > 0.02 ? (
         <Svg width="100%" height="100%" style={StyleSheet.absoluteFill}>
           <Defs>
             <RadialGradient id="irisBloom" cx="50%" cy="42%" rx="58%" ry="58%">
-              <Stop
-                offset="0"
-                stopColor="#FFF5E0"
-                stopOpacity={Math.min(0.5, overlay.bloom * 0.48)}
-              />
-              <Stop
-                offset="0.45"
-                stopColor="#FFB060"
-                stopOpacity={Math.min(0.28, overlay.bloom * 0.22)}
-              />
+              <Stop offset="0" stopColor="#FFF5E0" stopOpacity={Math.min(0.55, bloom * 0.5)} />
+              <Stop offset="0.4" stopColor="#FFB060" stopOpacity={Math.min(0.28, bloom * 0.24)} />
               <Stop offset="1" stopColor="#FFB060" stopOpacity={0} />
             </RadialGradient>
           </Defs>
@@ -257,15 +273,11 @@ export function LookOverlay({ overlay, strength = 1 }: Props) {
         </Svg>
       ) : null}
 
-      {overlay.leak > 0.02 ? (
+      {leak > 0.02 ? (
         <Svg width="100%" height="100%" style={StyleSheet.absoluteFill}>
           <Defs>
             <LinearGradient id="irisLeak" x1="92%" y1="2%" x2="45%" y2="55%">
-              <Stop
-                offset="0"
-                stopColor="#FF6A20"
-                stopOpacity={Math.min(0.7, overlay.leak * 0.72)}
-              />
+              <Stop offset="0" stopColor="#FF6A20" stopOpacity={Math.min(0.7, leak * 0.72)} />
               <Stop offset="1" stopColor="#FF6A20" stopOpacity={0} />
             </LinearGradient>
           </Defs>
@@ -273,8 +285,8 @@ export function LookOverlay({ overlay, strength = 1 }: Props) {
         </Svg>
       ) : null}
 
-      {overlay.stamp > 0.02 ? (
-        <Text style={[styles.stamp, { opacity: Math.min(0.95, overlay.stamp) }]}>{stampText}</Text>
+      {stamp > 0.02 ? (
+        <Text style={[styles.stamp, { opacity: Math.min(0.95, stamp) }]}>{stampText}</Text>
       ) : null}
     </View>
   );

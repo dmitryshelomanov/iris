@@ -21,7 +21,6 @@ import {
   CountdownOverlay,
   FocusReticle,
   GridOverlay,
-  HistogramOverlay,
   LensSwitcher,
   LevelOverlay,
   LookOverlay,
@@ -32,7 +31,6 @@ import {
   PeakingOverlay,
   ScenePresetChips,
   StabilizationCrosshairOverlay,
-  ZebraOverlay,
   ZoomSwitcher,
   defaultPresetName,
   useCaptureSettings,
@@ -106,8 +104,6 @@ export function CameraScreen() {
     patchSettings,
   });
 
-  const setHistogramRef = useRef<(bins: number[] | null) => void>(() => {});
-
   const capture = useCameraCapture({
     cameraRef: session.cameraRef,
     mode,
@@ -123,7 +119,6 @@ export function CameraScreen() {
     isCapturingRef,
     setStatus,
     addCapture,
-    setHistogram: (bins) => setHistogramRef.current(bins),
     setPostCaptureOpen,
   });
 
@@ -148,10 +143,7 @@ export function CameraScreen() {
     sessionReady: session.sessionReady,
     manual: manual.manual,
     aeAfLocked: preview.aeAfLocked,
-    lastShotHistogram: lastShot?.histogram,
-    lastShotId: lastShot?.id,
   });
-  setHistogramRef.current = overlays.setHistogram;
 
   const presets = useCameraPresets({
     settings,
@@ -252,7 +244,6 @@ export function CameraScreen() {
       {settings.showCrosshair ? <StabilizationCrosshairOverlay active={cameraActive} /> : null}
       {settings.showGrid ? <GridOverlay /> : null}
       {settings.showLevel ? <LevelOverlay active={cameraActive} /> : null}
-      {settings.showZebras ? <ZebraOverlay intensity={overlays.zebraIntensity} /> : null}
       {settings.showPeaking ? (
         <PeakingOverlay
           intensity={overlays.peakIntensity}
@@ -266,7 +257,6 @@ export function CameraScreen() {
           }
         />
       ) : null}
-      {settings.showHistogram ? <HistogramOverlay bins={overlays.displayHistogram} /> : null}
       <FocusReticle state={preview.focusReticle} />
       <CountdownOverlay seconds={capture.countdown} />
       {capture.countdown != null ? (

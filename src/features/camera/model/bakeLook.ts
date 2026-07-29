@@ -38,8 +38,8 @@ function computeHistogram(image: SkImage, bins = 32): number[] {
 
   const width = image.width();
   const height = image.height();
-  const stepX = Math.max(1, Math.floor(width / 48));
-  const stepY = Math.max(1, Math.floor(height / 48));
+  const stepX = Math.max(1, Math.floor(width / 96));
+  const stepY = Math.max(1, Math.floor(height / 96));
 
   for (let y = 0; y < height; y += stepY) {
     for (let x = 0; x < width; x += stepX) {

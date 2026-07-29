@@ -53,11 +53,7 @@ export { bakeLookIntoPhoto } from './model/bakeLook';
 export type { BakeLookResult } from './model/bakeLook';
 export { bakeLookIntoVideo } from './model/bakeLookVideo';
 export type { BakeVideoLookResult } from './model/bakeLookVideo';
-export {
-  synthesizeLiveHistogram,
-  zebraIntensityFromExposure,
-  peakingIntensity,
-} from './model/liveMetering';
+export { peakingIntensity } from './model/liveMetering';
 export { LOOK_SCENES, looksForScene } from './model/lookScenes';
 export type { LookSceneId } from './model/lookScenes';
 export { useVolumeShutter } from './model/useVolumeShutter';
@@ -75,7 +71,6 @@ export { CameraPresetsDialog } from './ui/CameraPresetsDialog';
 export { CaptureToolbar } from './ui/CaptureToolbar';
 export { CountdownOverlay } from './ui/CountdownOverlay';
 export { GridOverlay } from './ui/GridOverlay';
-export { HistogramOverlay } from './ui/HistogramOverlay';
 export { LensSwitcher } from './ui/LensSwitcher';
 export { LevelOverlay } from './ui/LevelOverlay';
 export { LookOverlay } from './ui/LookOverlay';
@@ -87,6 +82,5 @@ export { ZoomSwitcher } from './ui/ZoomSwitcher';
 export { AspectCropOverlay } from './ui/AspectCropOverlay';
 export { FocusReticle } from './ui/FocusReticle';
 export type { FocusReticleState } from './ui/FocusReticle';
-export { ZebraOverlay } from './ui/ZebraOverlay';
 export { PeakingOverlay } from './ui/PeakingOverlay';
 export { ScenePresetChips } from './ui/ScenePresetChips';

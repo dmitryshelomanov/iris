@@ -19,6 +19,17 @@ export function isAppDocumentUri(uri: string): boolean {
  * Returns a file:// URI that survives cache purge / app restart.
  */
 export async function persistPhotoMaster(sourcePath: string): Promise<string> {
+  return persistMaster(sourcePath, 'jpg');
+}
+
+/**
+ * Copy a recorded video into durable Documents/masters storage for re-bake.
+ */
+export async function persistVideoMaster(sourcePath: string): Promise<string> {
+  return persistMaster(sourcePath, 'mp4');
+}
+
+async function persistMaster(sourcePath: string, ext: 'jpg' | 'mp4'): Promise<string> {
   const source = new File(toFileUri(sourcePath));
   if (!source.exists) {
     throw new Error('Capture file missing before master copy');
@@ -29,11 +40,14 @@ export async function persistPhotoMaster(sourcePath: string): Promise<string> {
     mastersDir.create({ intermediates: true, overwrite: false });
   }
 
-  const dest = new File(mastersDir, `iris-master-${Date.now()}.jpg`);
+  const dest = new File(mastersDir, `iris-master-${Date.now()}.${ext}`);
   await source.copy(dest, { overwrite: true });
 
-  if (!dest.exists || (dest.size ?? 0) < 1024) {
-    throw new Error('Master copy failed to write JPEG');
+  const minSize = ext === 'jpg' ? 1024 : 2048;
+  if (!dest.exists || (dest.size ?? 0) < minSize) {
+    throw new Error(
+      ext === 'jpg' ? 'Master copy failed to write JPEG' : 'Master copy failed to write video',
+    );
   }
 
   return dest.uri;

@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
 import type { CameraRef, Recorder } from 'react-native-vision-camera';
 
-import { persistPhotoMaster, savePhotoToLibrary, saveVideoToLibrary } from '@/entities/capture';
+import {
+  persistPhotoMaster,
+  persistVideoMaster,
+  savePhotoToLibrary,
+  saveVideoToLibrary,
+} from '@/entities/capture';
 import type { RecentCapture } from '@/entities/capture';
 import {
   bakeLookIntoPhoto,
@@ -44,7 +49,6 @@ type Options = {
   isCapturingRef: RefObject<boolean>;
   setStatus: (status: string | null) => void;
   addCapture: (entry: Omit<RecentCapture, 'id' | 'createdAt'> & { id?: string }) => Promise<void>;
-  setHistogram: (bins: number[] | null) => void;
   setPostCaptureOpen: (open: boolean) => void;
 };
 
@@ -63,7 +67,6 @@ export function useCameraCapture({
   isCapturingRef,
   setStatus,
   addCapture,
-  setHistogram,
   setPostCaptureOpen,
 }: Options) {
   const [isRecording, setIsRecording] = useState(false);
@@ -92,7 +95,6 @@ export function useCameraCapture({
       strength: settings.lookStrength,
       jpegQuality: settings.jpegQuality,
     });
-    setHistogram(baked.histogram);
 
     await savePhotoToLibrary(baked.uri);
 
@@ -137,7 +139,6 @@ export function useCameraCapture({
     manual.shutter,
     manual.wbKelvin,
     photoOutput,
-    setHistogram,
     settings.flashMode,
     settings.jpegQuality,
     settings.lookId,
@@ -193,24 +194,40 @@ export function useCameraCapture({
   const finishRecording = useCallback(
     async (filePath: string) => {
       try {
+        const masterUri = await persistVideoMaster(filePath);
         let outPath = filePath;
         let uri = filePath.startsWith('file://') ? filePath : `file://${filePath}`;
+        let lookApplied = settings.lookId === 'none';
 
         if (settings.lookId !== 'none') {
           setStatus('Applying look…');
-          const baked = await bakeLookIntoVideo(filePath, look.overlay, {
+          const baked = await bakeLookIntoVideo(masterUri, look.overlay, {
             strength: settings.lookStrength,
           });
           outPath = baked.path;
           uri = baked.uri;
+          lookApplied = baked.baked;
+        } else {
+          uri = masterUri;
+          outPath = masterUri.replace(/^file:\/\//, '');
         }
 
         setStatus('Saving video…');
         await saveVideoToLibrary(outPath);
-        await addCapture({ uri, kind: 'video', lookId: settings.lookId });
-        setStatus(
-          settings.lookId === 'none' ? 'Saved to Photos' : `Saved · ${look.label} · ${look.hint}`,
-        );
+        await addCapture({
+          uri,
+          rawUri: masterUri,
+          kind: 'video',
+          lookId: settings.lookId,
+          lookStrength: settings.lookStrength,
+        });
+        if (settings.lookId === 'none') {
+          setStatus('Saved to Photos');
+        } else if (lookApplied) {
+          setStatus(`Saved · ${look.label} · ${look.hint}`);
+        } else {
+          setStatus(`Saved · look skipped (${look.label})`);
+        }
         setPostCaptureOpen(true);
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Save failed';

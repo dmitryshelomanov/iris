@@ -265,11 +265,10 @@ export function ReviewModal({
   const current = recents[index] ?? recents[0] ?? null;
   const masterExists = fileUriExists(current?.rawUri);
   const canCompare =
-    current?.kind === 'photo' &&
-    !!current.rawUri &&
+    !!current?.rawUri &&
     masterExists &&
     (current.rawUri !== current.uri || (current.lookId != null && current.lookId !== 'none'));
-  const canRebake = current?.kind === 'photo' && !!current.rawUri && masterExists;
+  const canRebake = !!current?.rawUri && masterExists;
 
   useEffect(() => {
     if (!current) return;
@@ -362,7 +361,17 @@ export function ReviewModal({
             <Image source={{ uri: current.uri }} className="flex-1" resizeMode="contain" />
           )
         ) : current ? (
-          <VideoPlayer uri={current.uri} />
+          <View className="flex-1">
+            <VideoPlayer
+              key={compare && canCompare && current.rawUri ? current.rawUri : current.uri}
+              uri={compare && canCompare && current.rawUri ? current.rawUri : current.uri}
+            />
+            {compare && canCompare ? (
+              <Text className="absolute left-4 top-4 rounded-full bg-black/55 px-3 py-1 text-[11px] font-semibold text-white">
+                Master (before look)
+              </Text>
+            ) : null}
+          </View>
         ) : (
           <View className="flex-1 items-center justify-center">
             <Text className="text-white/50">No captures yet</Text>

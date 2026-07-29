@@ -55,11 +55,7 @@ export { bakeLookIntoVideo } from './bakeLookVideo';
 export type { BakeVideoLookResult } from './bakeLookVideo';
 export { buildGradeMatrix } from './gradeMatrix';
 export { needsToonPass } from './toonBake';
-export {
-  synthesizeLiveHistogram,
-  zebraIntensityFromExposure,
-  peakingIntensity,
-} from './liveMetering';
+export { peakingIntensity } from './liveMetering';
 export { LOOK_SCENES, looksForScene } from './lookScenes';
 export type { LookSceneId } from './lookScenes';
 export { useVolumeShutter } from './useVolumeShutter';

@@ -4,6 +4,7 @@ export {
   fileUriExists,
   isAppDocumentUri,
   persistPhotoMaster,
+  persistVideoMaster,
 } from './api/masters';
 export {
   loadRecents,

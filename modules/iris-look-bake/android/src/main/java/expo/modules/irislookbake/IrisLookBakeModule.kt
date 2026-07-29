@@ -3,9 +3,14 @@ package expo.modules.irislookbake
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.graphics.Color
 import android.graphics.ColorMatrix
 import android.graphics.ColorMatrixColorFilter
 import android.graphics.Paint
+import android.graphics.PorterDuff
+import android.graphics.PorterDuffXfermode
+import android.graphics.RadialGradient
+import android.graphics.Shader
 import android.media.MediaCodec
 import android.media.MediaCodecInfo
 import android.media.MediaExtractor
@@ -18,6 +23,8 @@ import expo.modules.kotlin.records.Field
 import expo.modules.kotlin.records.Record
 import java.io.File
 import java.nio.ByteBuffer
+import java.util.Random
+import kotlin.math.hypot
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -75,6 +82,21 @@ class IrisLookBakeModule : Module() {
     Function("playSystemHaptic") { _: String -> }
   }
 
+  private fun needsBake(options: BakeLookVideoOptions): Boolean {
+    return options.matrix.size == 20 ||
+      options.smooth > 0.01 ||
+      options.posterize > 0.01 ||
+      options.edges > 0.01 ||
+      options.vignette > 0.01 ||
+      options.grain > 0.01 ||
+      options.bloom > 0.01 ||
+      options.leak > 0.01 ||
+      options.stamp > 0.01 ||
+      (options.tint.size >= 4 && options.tint[3] > 0.01) ||
+      (options.shadows.size >= 4 && options.shadows[3] > 0.01) ||
+      (options.highlights.size >= 4 && options.highlights[3] > 0.01)
+  }
+
   private fun bakeLookIntoVideo(
     context: Context?,
     inputPath: String,
@@ -86,12 +108,7 @@ class IrisLookBakeModule : Module() {
       throw IllegalArgumentException("Input video not found")
     }
 
-    if (
-      options.matrix.size != 20 &&
-      options.smooth <= 0.01 &&
-      options.posterize <= 0.01 &&
-      options.edges <= 0.01
-    ) {
+    if (!needsBake(options)) {
       return passthrough(inputFile)
     }
 
@@ -107,13 +124,17 @@ class IrisLookBakeModule : Module() {
       val height = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)?.toIntOrNull() ?: 0
       val durationMs = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L
       val rotation = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION)?.toIntOrNull() ?: 0
+      val fpsMeta = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_CAPTURE_FRAMERATE)
+        ?.toFloatOrNull()
+        ?: parseFps(retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_FRAME_COUNT), durationMs)
 
       if (width <= 0 || height <= 0 || durationMs <= 0L) {
-        return passthrough(inputFile)
+        throw IllegalStateException("Invalid video metadata")
       }
 
-      val fps = 20
-      val frameCount = max(1, min(180, ((durationMs / 1000.0) * fps).roundToInt()))
+      // Match source timing; cap encode fps at 30 for CPU bake cost.
+      val fps = max(12, min(30, (if (fpsMeta > 1f) fpsMeta else 30f).roundToInt()))
+      val frameCount = max(1, ((durationMs / 1000.0) * fps).roundToInt())
       val colorMatrix = if (options.matrix.size == 20) {
         colorMatrixFromOptions(options)
       } else {
@@ -139,10 +160,10 @@ class IrisLookBakeModule : Module() {
         options = options
       )
 
-      muxAudioFromOriginal(cleaned, outFile)
+      muxAudioFromOriginal(cleaned, outFile, durationMs)
 
       if (!outFile.exists() || outFile.length() < 1024) {
-        return passthrough(inputFile)
+        throw IllegalStateException("Bake produced empty output")
       }
 
       return mapOf(
@@ -150,15 +171,21 @@ class IrisLookBakeModule : Module() {
         "uri" to "file://${outFile.absolutePath}",
         "baked" to true
       )
-    } catch (_: Exception) {
+    } catch (error: Exception) {
       if (outFile.exists()) outFile.delete()
-      return passthrough(inputFile)
+      throw error
     } finally {
       try {
         retriever.release()
       } catch (_: Exception) {
       }
     }
+  }
+
+  private fun parseFps(frameCountMeta: String?, durationMs: Long): Float {
+    val frames = frameCountMeta?.toIntOrNull() ?: return 30f
+    if (durationMs <= 0L || frames <= 0) return 30f
+    return (frames * 1000f) / durationMs.toFloat()
   }
 
   private fun passthrough(file: File) = mapOf(
@@ -200,11 +227,7 @@ class IrisLookBakeModule : Module() {
     applyRgba(options.shadows, "multiply")
     applyRgba(options.tint, "soft")
     applyRgba(options.highlights, "screen")
-
-    if (options.vignette > 0.01) {
-      val v = options.vignette.toFloat().coerceIn(0f, 1f)
-      cm.postConcat(ColorMatrix().apply { setScale(1f - v * 0.15f, 1f - v * 0.15f, 1f - v * 0.15f, 1f) })
-    }
+    // Vignette is applied spatially on the canvas (not as a global matrix darken).
 
     return cm
   }
@@ -240,6 +263,7 @@ class IrisLookBakeModule : Module() {
     var muxerStarted = false
     val bufferInfo = MediaCodec.BufferInfo()
     val frameDurationUs = 1_000_000L / fps
+    val grainRandom = Random(7)
 
     fun drain(endOfStream: Boolean) {
       if (endOfStream) encoder.signalEndOfInputStream()
@@ -268,18 +292,21 @@ class IrisLookBakeModule : Module() {
     }
 
     try {
+      var encodedFrames = 0
       for (i in 0 until frameCount) {
-        val timeUs = (i * durationMs * 1000L) / frameCount
-        val raw = retriever.getFrameAtTime(timeUs, MediaMetadataRetriever.OPTION_CLOSEST) ?: continue
+        val timeUs = if (frameCount == 1) 0L else (i * durationMs * 1000L) / (frameCount - 1).coerceAtLeast(1)
+        val raw = retriever.getFrameAtTime(timeUs, MediaMetadataRetriever.OPTION_CLOSEST)
+          ?: continue
         var graded = Bitmap.createBitmap(outW, outH, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(graded)
         canvas.drawBitmap(raw, null, android.graphics.Rect(0, 0, outW, outH), paint)
+        applySpatialEffects(canvas, outW, outH, options, grainRandom, i)
         graded = applyToon(graded, options)
 
-        if (options.stamp > 0.05 && options.stampText.isNotEmpty()) {
+        if (options.stamp > 0.01 && options.stampText.isNotEmpty()) {
           val stampCanvas = Canvas(graded)
           val stampPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = android.graphics.Color.argb(
+            color = Color.argb(
               (options.stamp.coerceIn(0.0, 1.0) * 240).roundToInt(),
               255,
               154,
@@ -289,7 +316,14 @@ class IrisLookBakeModule : Module() {
             typeface = android.graphics.Typeface.MONOSPACE
             isFakeBoldText = true
           }
-          stampCanvas.drawText(options.stampText, outW * 0.72f, outH * 0.94f, stampPaint)
+          val padX = outW * 0.045f
+          val padY = outH * 0.045f
+          stampCanvas.drawText(
+            options.stampText,
+            outW - stampPaint.measureText(options.stampText) - padX,
+            outH - padY,
+            stampPaint
+          )
         }
 
         val yuv = argbToNv12(graded)
@@ -307,9 +341,13 @@ class IrisLookBakeModule : Module() {
           val input = encoder.getInputBuffer(inputIndex)!!
           input.clear()
           input.put(yuv)
-          encoder.queueInputBuffer(inputIndex, 0, yuv.size, i * frameDurationUs, 0)
+          encoder.queueInputBuffer(inputIndex, 0, yuv.size, encodedFrames * frameDurationUs, 0)
+          encodedFrames++
         }
         drain(false)
+      }
+      if (encodedFrames == 0) {
+        throw IllegalStateException("No frames decoded for bake")
       }
       drain(true)
     } finally {
@@ -323,6 +361,100 @@ class IrisLookBakeModule : Module() {
         muxer.release()
       } catch (_: Exception) {
       }
+    }
+  }
+
+  private fun applySpatialEffects(
+    canvas: Canvas,
+    outW: Int,
+    outH: Int,
+    options: BakeLookVideoOptions,
+    random: Random,
+    frameIndex: Int
+  ) {
+    if (options.vignette > 0.01) {
+      val vig = options.vignette.toFloat().coerceIn(0f, 1f)
+      val cx = outW / 2f
+      val cy = outH / 2f
+      val radius = hypot(cx.toDouble(), cy.toDouble()).toFloat() * 1.05f
+      val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        shader = RadialGradient(
+          cx,
+          cy,
+          radius,
+          intArrayOf(Color.TRANSPARENT, Color.argb((vig * 0.85f * 255).roundToInt(), 0, 0, 0)),
+          floatArrayOf(0.35f, 1f),
+          Shader.TileMode.CLAMP
+        )
+        xfermode = PorterDuffXfermode(PorterDuff.Mode.MULTIPLY)
+      }
+      canvas.drawRect(0f, 0f, outW.toFloat(), outH.toFloat(), paint)
+    }
+
+    if (options.grain > 0.01) {
+      val grain = options.grain.toFloat().coerceIn(0f, 1f)
+      val tile = 64
+      val noise = Bitmap.createBitmap(tile, tile, Bitmap.Config.ARGB_8888)
+      val pixels = IntArray(tile * tile)
+      // Animate grain slightly per frame.
+      random.setSeed(7L + frameIndex * 9973L)
+      for (i in pixels.indices) {
+        val v = random.nextInt(256)
+        val a = (28 + grain * 140).roundToInt().coerceIn(0, 180)
+        pixels[i] = (a shl 24) or (v shl 16) or (v shl 8) or v
+      }
+      noise.setPixels(pixels, 0, tile, 0, 0, tile, tile)
+      val paint = Paint().apply {
+        alpha = (80 + grain * 140).roundToInt().coerceIn(40, 220)
+        xfermode = PorterDuffXfermode(PorterDuff.Mode.OVERLAY)
+      }
+      var y = 0
+      while (y < outH) {
+        var x = 0
+        while (x < outW) {
+          canvas.drawBitmap(noise, x.toFloat(), y.toFloat(), paint)
+          x += tile
+        }
+        y += tile
+      }
+      noise.recycle()
+    }
+
+    if (options.bloom > 0.02) {
+      val bloom = options.bloom.toFloat().coerceIn(0f, 1f)
+      val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        shader = RadialGradient(
+          outW * 0.5f,
+          outH * 0.42f,
+          hypot(outW.toDouble(), outH.toDouble()).toFloat() * 0.55f,
+          intArrayOf(
+            Color.argb((bloom * 0.5f * 255).roundToInt(), 255, 245, 224),
+            Color.argb((bloom * 0.24f * 255).roundToInt(), 255, 176, 96),
+            Color.TRANSPARENT
+          ),
+          floatArrayOf(0f, 0.4f, 1f),
+          Shader.TileMode.CLAMP
+        )
+        xfermode = PorterDuffXfermode(PorterDuff.Mode.SCREEN)
+      }
+      canvas.drawRect(0f, 0f, outW.toFloat(), outH.toFloat(), paint)
+    }
+
+    if (options.leak > 0.02) {
+      val leak = options.leak.toFloat().coerceIn(0f, 1f)
+      val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        shader = android.graphics.LinearGradient(
+          outW * 0.92f,
+          outH * 0.02f,
+          outW * 0.45f,
+          outH * 0.55f,
+          Color.argb((leak * 0.72f * 255).roundToInt(), 255, 106, 32),
+          Color.TRANSPARENT,
+          Shader.TileMode.CLAMP
+        )
+        xfermode = PorterDuffXfermode(PorterDuff.Mode.SCREEN)
+      }
+      canvas.drawRect(0f, 0f, outW.toFloat(), outH.toFloat(), paint)
     }
   }
 
@@ -340,7 +472,6 @@ class IrisLookBakeModule : Module() {
       val small = Bitmap.createScaledBitmap(working, tw, th, true)
       val blurred = Bitmap.createScaledBitmap(small, working.width, working.height, true)
       small.recycle()
-      // Caller only recycles the returned bitmap — free the previous frame.
       working.recycle()
       working = blurred
     }
@@ -426,7 +557,7 @@ class IrisLookBakeModule : Module() {
     return out
   }
 
-  private fun muxAudioFromOriginal(inputPath: String, videoOnlyFile: File) {
+  private fun muxAudioFromOriginal(inputPath: String, videoOnlyFile: File, maxDurationMs: Long) {
     val extractor = MediaExtractor()
     val tempOut = File(videoOnlyFile.parentFile, "iris-bake-av-${System.currentTimeMillis()}.mp4")
     try {
@@ -467,21 +598,23 @@ class IrisLookBakeModule : Module() {
 
       val buffer = ByteBuffer.allocate(1 shl 20)
       val info = MediaCodec.BufferInfo()
+      val maxPtsUs = maxDurationMs * 1000L
 
-      fun copy(ext: MediaExtractor, track: Int) {
+      fun copy(ext: MediaExtractor, track: Int, trimToPts: Long?) {
         while (true) {
           info.offset = 0
           info.size = ext.readSampleData(buffer, 0)
           if (info.size < 0) break
           info.presentationTimeUs = ext.sampleTime
+          if (trimToPts != null && info.presentationTimeUs > trimToPts) break
           info.flags = ext.sampleFlags
           muxer.writeSampleData(track, buffer, info)
           ext.advance()
         }
       }
 
-      copy(videoExtractor, outVideo)
-      copy(extractor, outAudio)
+      copy(videoExtractor, outVideo, null)
+      copy(extractor, outAudio, maxPtsUs)
       muxer.stop()
       muxer.release()
       videoExtractor.release()
@@ -490,8 +623,9 @@ class IrisLookBakeModule : Module() {
         videoOnlyFile.delete()
         tempOut.renameTo(videoOnlyFile)
       }
-    } catch (_: Exception) {
+    } catch (error: Exception) {
       if (tempOut.exists()) tempOut.delete()
+      throw error
     } finally {
       try {
         extractor.release()
