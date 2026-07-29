@@ -1,4 +1,5 @@
 import {
+  deleteLibraryAssets,
   fileUriExists,
   loadRecents,
   savePhotoToLibrary,
@@ -41,19 +42,24 @@ export async function rebakeLook(
   }
 
   const look = getLookPreset(options.lookId);
+  const previousLibraryAssetId = entry.libraryAssetId;
 
   if (entry.kind === 'photo') {
     const baked = await bakeLookIntoPhoto(entry.rawUri, look.overlay, {
       strength: options.lookStrength,
       jpegQuality: options.jpegQuality ?? 0.95,
     });
-    await savePhotoToLibrary(baked.uri);
+    const asset = await savePhotoToLibrary(baked.uri);
     const nextList = await updateRecent(recentId, {
       uri: baked.uri,
+      libraryAssetId: asset.id,
       lookId: options.lookId,
       lookStrength: options.lookStrength,
       histogram: baked.histogram,
     });
+    if (previousLibraryAssetId && previousLibraryAssetId !== asset.id) {
+      await deleteLibraryAssets([previousLibraryAssetId]);
+    }
     const updated = nextList.find((r) => r.id === recentId);
     if (!updated) throw new Error('Failed to update capture');
     return updated;
@@ -66,12 +72,16 @@ export async function rebakeLook(
     if (options.lookId !== 'none' && !baked.baked) {
       throw new Error('Video look bake failed');
     }
-    await saveVideoToLibrary(baked.path);
+    const asset = await saveVideoToLibrary(baked.path);
     const nextList = await updateRecent(recentId, {
       uri: baked.uri,
+      libraryAssetId: asset.id,
       lookId: options.lookId,
       lookStrength: options.lookStrength,
     });
+    if (previousLibraryAssetId && previousLibraryAssetId !== asset.id) {
+      await deleteLibraryAssets([previousLibraryAssetId]);
+    }
     const updated = nextList.find((r) => r.id === recentId);
     if (!updated) throw new Error('Failed to update capture');
     return updated;

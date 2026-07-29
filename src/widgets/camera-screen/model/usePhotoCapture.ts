@@ -72,7 +72,7 @@ export function usePhotoCapture({
       jpegQuality: settings.jpegQuality,
     });
 
-    await savePhotoToLibrary(baked.uri);
+    const asset = await savePhotoToLibrary(baked.uri);
 
     const controller = cameraRef.current?.controller;
     const iso =
@@ -86,6 +86,7 @@ export function usePhotoCapture({
     await addCapture({
       uri: baked.uri,
       rawUri: masterUri,
+      libraryAssetId: asset.id,
       kind: 'photo',
       lookId: settings.lookId,
       lookStrength: settings.lookStrength,

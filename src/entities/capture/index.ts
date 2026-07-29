@@ -1,4 +1,9 @@
-export { savePhotoToLibrary, saveVideoToLibrary } from './api/library';
+export {
+  deleteLibraryAssets,
+  libraryAssetExists,
+  savePhotoToLibrary,
+  saveVideoToLibrary,
+} from './api/library';
 export {
   deleteAppDocumentFile,
   fileUriExists,
@@ -8,8 +13,11 @@ export {
 } from './api/masters';
 export {
   loadRecents,
+  pruneRecentsMissingLibraryAssets,
   pushRecent,
   removeRecent,
+  removeRecents,
+  removeRecentsByLibraryAssetIds,
   toggleFavoriteRecent,
   updateRecent,
 } from './model/recents';

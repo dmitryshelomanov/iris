@@ -7,11 +7,15 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import { AppState, type AppStateStatus } from 'react-native';
+import { addListener } from 'expo-media-library';
 
 import {
-  loadRecents,
+  pruneRecentsMissingLibraryAssets,
   pushRecent,
   removeRecent,
+  removeRecents,
+  removeRecentsByLibraryAssetIds,
   updateRecent,
   type RecentCapture,
 } from '@/entities/capture';
@@ -22,6 +26,7 @@ type RecentsContextValue = {
   lastShot: RecentCapture | null;
   addCapture: (entry: Omit<RecentCapture, 'id' | 'createdAt'> & { id?: string }) => Promise<void>;
   dismiss: (id: string) => Promise<void>;
+  dismissMany: (ids: string[]) => Promise<void>;
   patchCapture: (
     id: string,
     patch: Partial<Omit<RecentCapture, 'id' | 'createdAt'>>,
@@ -36,8 +41,8 @@ export function RecentsProvider({ children }: { children: ReactNode }) {
   const [recents, setRecents] = useState<RecentCapture[]>([]);
 
   const refresh = useCallback(async () => {
-    const list = await loadRecents();
-    setRecents(list);
+    const pruned = await pruneRecentsMissingLibraryAssets();
+    setRecents(pruned);
   }, []);
 
   useEffect(() => {
@@ -51,6 +56,33 @@ export function RecentsProvider({ children }: { children: ReactNode }) {
     };
   }, [refresh]);
 
+  useEffect(() => {
+    const onAppState = (state: AppStateStatus) => {
+      if (state === 'active') {
+        void refresh();
+      }
+    };
+    const appSub = AppState.addEventListener('change', onAppState);
+
+    const librarySub = addListener((event) => {
+      void (async () => {
+        if (event.hasIncrementalChanges && event.deletedAssets?.length) {
+          const list = await removeRecentsByLibraryAssetIds(event.deletedAssets);
+          setRecents(list);
+          return;
+        }
+        // Android always reports non-incremental; iOS may too for large changes.
+        const list = await pruneRecentsMissingLibraryAssets();
+        setRecents(list);
+      })();
+    });
+
+    return () => {
+      appSub.remove();
+      librarySub.remove();
+    };
+  }, [refresh]);
+
   const addCapture = useCallback(
     async (entry: Omit<RecentCapture, 'id' | 'createdAt'> & { id?: string }) => {
       const list = await pushRecent(entry);
@@ -61,6 +93,11 @@ export function RecentsProvider({ children }: { children: ReactNode }) {
 
   const dismiss = useCallback(async (id: string) => {
     const list = await removeRecent(id);
+    setRecents(list);
+  }, []);
+
+  const dismissMany = useCallback(async (ids: string[]) => {
+    const list = await removeRecents(ids);
     setRecents(list);
   }, []);
 
@@ -79,10 +116,11 @@ export function RecentsProvider({ children }: { children: ReactNode }) {
       lastShot: recents[0] ?? null,
       addCapture,
       dismiss,
+      dismissMany,
       patchCapture,
       refresh,
     }),
-    [ready, recents, addCapture, dismiss, patchCapture, refresh],
+    [ready, recents, addCapture, dismiss, dismissMany, patchCapture, refresh],
   );
 
   return <RecentsContext.Provider value={value}>{children}</RecentsContext.Provider>;

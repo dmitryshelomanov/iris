@@ -84,10 +84,11 @@ export function useVideoCapture({
         }
 
         setStatus(captureStatus.savingVideo());
-        await saveVideoToLibrary(outPath);
+        const asset = await saveVideoToLibrary(outPath);
         await addCapture({
           uri,
           rawUri: masterUri,
+          libraryAssetId: asset.id,
           kind: 'video',
           lookId: settings.lookId,
           lookStrength: settings.lookStrength,

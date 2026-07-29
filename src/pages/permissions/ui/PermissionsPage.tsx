@@ -10,7 +10,7 @@ export function PermissionsPage() {
   const insets = useSafeAreaInsets();
   const camera = useCameraPermission();
   const mic = useMicrophonePermission();
-  const [photos, requestPhotos] = useMediaLibraryPermissions({ writeOnly: true });
+  const [photos, requestPhotos] = useMediaLibraryPermissions({ writeOnly: false });
 
   return (
     <View
@@ -18,7 +18,8 @@ export function PermissionsPage() {
       style={{ paddingTop: 16, paddingBottom: insets.bottom + 16 }}
     >
       <Text className="text-muted-foreground">
-        Grant camera, microphone, and Photos access so Iris can capture and save to your library.
+        Grant camera, microphone, and Photos access so Iris can capture, save, and keep its gallery
+        in sync with your library.
       </Text>
 
       <View className="gap-3 rounded-2xl border border-border p-4">
