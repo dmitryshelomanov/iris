@@ -43,3 +43,13 @@ yarn-error.*
 # local expo module build outputs
 modules/*/android/build/
 modules/*/ios/build/
+
+# EAS local build artifacts
+/build-*.apk
+/build-*.aab
+/dist/android/
+
+# website (Next.js static site)
+website/node_modules/
+website/.next/
+website/out/
