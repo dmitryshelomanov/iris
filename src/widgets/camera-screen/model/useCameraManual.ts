@@ -9,6 +9,7 @@ import {
   type LookPresetId,
   type ManualControlsState,
 } from '@/features/camera';
+import { errorMessage } from '@/shared/lib/errorMessage';
 
 type Options = {
   cameraRef: RefObject<CameraRef | null>;
@@ -31,7 +32,7 @@ export function useCameraManual({
   setStatus,
   patchSettings,
 }: Options) {
-  const [manual, setManual] = useState<ManualControlsState>(DEFAULT_MANUAL_STATE);
+  const [manual, setManualState] = useState<ManualControlsState>(DEFAULT_MANUAL_STATE);
   const [showManual, setShowManual] = useState(false);
 
   useEffect(() => {
@@ -47,7 +48,7 @@ export function useCameraManual({
         });
       } catch (error) {
         if (!cancelled) {
-          setStatus(error instanceof Error ? error.message : 'Control failed');
+          setStatus(errorMessage(error, 'Control failed'));
         }
       }
     })();
@@ -61,10 +62,10 @@ export function useCameraManual({
     (next: ManualControlsState) => {
       const controller = cameraRef.current?.controller;
       if (next.enabled && !manual.enabled && controller) {
-        setManual(seedManualFromController(controller, next));
+        setManualState(seedManualFromController(controller, next));
         return;
       }
-      setManual(next);
+      setManualState(next);
     },
     [cameraRef, manual.enabled],
   );
@@ -72,14 +73,13 @@ export function useCameraManual({
   const onLookChange = useCallback(
     (nextLookId: LookPresetId) => {
       patchSettings({ lookId: nextLookId });
-      setManual((prev) => applyLookToManual(prev, nextLookId));
+      setManualState((prev) => applyLookToManual(prev, nextLookId));
     },
     [patchSettings],
   );
 
   return {
     manual,
-    setManual,
     showManual,
     setShowManual,
     onManualChange,

@@ -8,7 +8,6 @@ import {
   type CameraPreset,
   type CaptureMode,
   type CaptureSettings,
-  type LensId,
   type LensOption,
   type ManualControlsState,
 } from '@/features/camera';
@@ -22,9 +21,9 @@ type Options = {
   lenses: LensOption[];
   setSettings: (settings: CaptureSettings) => void;
   setMode: (mode: CaptureMode) => void;
-  setManual: (manual: ManualControlsState) => void;
+  onManualChange: (manual: ManualControlsState) => void;
   setZoom: (zoom: number) => void;
-  setActiveLensId: (id: LensId) => void;
+  onSelectLens: (lens: LensOption) => void;
   setStatus: (status: string | null) => void;
   patchSettings: (patch: Partial<CaptureSettings>) => void;
 };
@@ -38,9 +37,9 @@ export function useCameraPresets({
   lenses,
   setSettings,
   setMode,
-  setManual,
+  onManualChange,
   setZoom,
-  setActiveLensId,
+  onSelectLens,
   setStatus,
   patchSettings,
 }: Options) {
@@ -64,7 +63,7 @@ export function useCameraPresets({
 
       setSettings(nextSettings);
       setMode(preset.mode);
-      setManual(preset.manual);
+      onManualChange(preset.manual);
       setZoom(preset.zoom);
 
       const nextLens = preset.activeLensId
@@ -73,7 +72,7 @@ export function useCameraPresets({
       const effectiveLens = nextLens ?? activeLens ?? null;
 
       if (nextLens) {
-        setActiveLensId(nextLens.id);
+        onSelectLens(nextLens);
       }
 
       if (nextSettings.torchOn && effectiveLens?.position === 'front') {
@@ -92,9 +91,9 @@ export function useCameraPresets({
     [
       activeLens,
       lenses,
+      onManualChange,
+      onSelectLens,
       patchSettings,
-      setActiveLensId,
-      setManual,
       setMode,
       setSettings,
       setStatus,

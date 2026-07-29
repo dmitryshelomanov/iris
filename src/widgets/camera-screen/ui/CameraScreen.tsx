@@ -55,6 +55,9 @@ import {
 import { CameraPermissionView } from './CameraPermissionView';
 import { CameraUnavailableView } from './CameraUnavailableView';
 
+/** Approximate preview height used to map focus reticle Y → peaking plane (0…1). */
+const PREVIEW_HEIGHT_ESTIMATE = 700;
+
 export function CameraScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -71,9 +74,11 @@ export function CameraScreen() {
   const [postCaptureOpen, setPostCaptureOpen] = useState(false);
   const [lookScene, setLookScene] = useState<LookSceneId>('all');
   const [appState, setAppState] = useState<AppStateStatus>(AppState.currentState);
+  // Sync gate for manual apply (ref) + UI disable (state via capture.isCapturing).
   const isCapturingRef = useRef(false);
   const cameraActive = isFocused && appState === 'active';
 
+  // Session needs setZoom before zoom hook exists — bridge via ref.
   const setZoomRef = useRef<(next: number | ((prev: number) => number)) => void>(() => {});
   const setZoom = useCallback((next: number | ((prev: number) => number)) => {
     setZoomRef.current(next);
@@ -155,9 +160,9 @@ export function CameraScreen() {
     lenses: session.lenses,
     setSettings,
     setMode,
-    setManual: manual.setManual,
+    onManualChange: manual.onManualChange,
     setZoom: zoom.setZoom,
-    setActiveLensId: session.setActiveLensId,
+    onSelectLens: session.onSelectLens,
     setStatus,
     patchSettings,
   });
@@ -252,7 +257,10 @@ export function CameraScreen() {
             preview.focusReticle
               ? Math.min(
                   0.95,
-                  Math.max(0.05, preview.focusReticle.y / Math.max(1, insets.top + 700)),
+                  Math.max(
+                    0.05,
+                    preview.focusReticle.y / Math.max(1, insets.top + PREVIEW_HEIGHT_ESTIMATE),
+                  ),
                 )
               : 0.5
           }
@@ -288,9 +296,8 @@ export function CameraScreen() {
           </Pressable>
         </View>
         <View className="items-center px-2">
-          {capture.isRecording ? (
-            <RecordingTimerBadge active />
-          ) : (
+          <RecordingTimerBadge active={capture.isRecording} />
+          {!capture.isRecording ? (
             <>
               <ModeToggle mode={mode} onChange={setMode} />
               {session.activeLens ? (
@@ -303,7 +310,7 @@ export function CameraScreen() {
                 </Text>
               ) : null}
             </>
-          )}
+          ) : null}
         </View>
         <View className="min-h-9 flex-1 flex-row items-center justify-end">
           <Pressable

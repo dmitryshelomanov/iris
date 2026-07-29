@@ -4,6 +4,23 @@ import { runOnJS, type SharedValue } from 'react-native-reanimated';
 import type { CameraRef } from 'react-native-vision-camera';
 
 import { hapticFocusLock, type FocusReticleState } from '@/features/camera';
+import { errorMessage } from '@/shared/lib/errorMessage';
+
+import { canPreviewInteract } from './captureGuards';
+
+const LONG_PRESS_MS = 380;
+
+const FOCUS_OPTIONS_CONTINUOUS = {
+  responsiveness: 'snappy' as const,
+  adaptiveness: 'continuous' as const,
+  autoResetAfter: 4,
+};
+
+const FOCUS_OPTIONS_LOCKED = {
+  responsiveness: 'snappy' as const,
+  adaptiveness: 'locked' as const,
+  autoResetAfter: null,
+};
 
 type Options = {
   cameraRef: RefObject<CameraRef | null>;
@@ -39,16 +56,13 @@ export function usePreviewInteraction({
 
   const onPreviewTap = useCallback(
     async (locationX: number, locationY: number) => {
-      if (manualEnabled || countdown != null || isCapturing) return;
+      if (!canPreviewInteract({ manualEnabled, countdown, isCapturing })) return;
       setFocusReticle({ x: locationX, y: locationY, locked: false });
       setAeAfLocked(false);
       try {
-        await cameraRef.current?.focusTo(
-          { x: locationX, y: locationY },
-          { responsiveness: 'snappy', adaptiveness: 'continuous', autoResetAfter: 4 },
-        );
+        await cameraRef.current?.focusTo({ x: locationX, y: locationY }, FOCUS_OPTIONS_CONTINUOUS);
       } catch (error) {
-        setStatus(error instanceof Error ? error.message : 'Focus failed');
+        setStatus(errorMessage(error, 'Focus failed'));
       }
     },
     [cameraRef, countdown, isCapturing, manualEnabled, setStatus],
@@ -56,18 +70,15 @@ export function usePreviewInteraction({
 
   const onPreviewLongPress = useCallback(
     async (locationX: number, locationY: number) => {
-      if (manualEnabled || countdown != null || isCapturing) return;
+      if (!canPreviewInteract({ manualEnabled, countdown, isCapturing })) return;
       setFocusReticle({ x: locationX, y: locationY, locked: true });
       setAeAfLocked(true);
       hapticFocusLock();
       setStatus('AE/AF locked');
       try {
-        await cameraRef.current?.focusTo(
-          { x: locationX, y: locationY },
-          { responsiveness: 'snappy', adaptiveness: 'locked', autoResetAfter: null },
-        );
+        await cameraRef.current?.focusTo({ x: locationX, y: locationY }, FOCUS_OPTIONS_LOCKED);
       } catch (error) {
-        setStatus(error instanceof Error ? error.message : 'Lock failed');
+        setStatus(errorMessage(error, 'Lock failed'));
       }
     },
     [cameraRef, countdown, isCapturing, manualEnabled, setStatus],
@@ -79,7 +90,7 @@ export function usePreviewInteraction({
     });
 
     const longPress = Gesture.LongPress()
-      .minDuration(380)
+      .minDuration(LONG_PRESS_MS)
       .onStart((e) => {
         runOnJS(onPreviewLongPress)(e.x, e.y);
       });
