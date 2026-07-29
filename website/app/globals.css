@@ -1,0 +1,30 @@
+@import 'tailwindcss';
+
+@source "../app/**/*.{js,ts,jsx,tsx,mdx}";
+@source "../components/**/*.{js,ts,jsx,tsx,mdx}";
+
+@theme {
+  --color-ink: #14161c;
+  --color-muted: #6b7280;
+  --color-line: #e5e7eb;
+  --color-paper: #ffffff;
+  --color-wash: #f6f7f9;
+  --color-navy: #011b4a;
+  --font-sans: var(--font-outfit), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-fraunces), ui-serif, Georgia, serif;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--color-paper);
+  color: var(--color-ink);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--color-navy) 18%, white);
+}
