@@ -135,9 +135,9 @@ Built by **[Dmitry Shelomanov](https://dmitryshelomanov.github.io/)** — Senior
 
 ### Socials
 
-* 🌐 [**Personal site**](https://dmitryshelomanov.github.io/)
-* 💬 [**Telegram**](https://t.me/dmitryshelomanov)
-* 🐙 [**GitHub**](https://github.com/dmitryshelomanov)
+- 🌐 [**Personal site**](https://dmitryshelomanov.github.io/)
+- 💬 [**Telegram**](https://t.me/dmitryshelomanov)
+- 🐙 [**GitHub**](https://github.com/dmitryshelomanov)
 
 ## License
 
