@@ -87,4 +87,5 @@ export { AspectCropOverlay } from './ui/AspectCropOverlay';
 export { FocusReticle } from './ui/FocusReticle';
 export type { FocusReticleState } from './ui/FocusReticle';
 export { PeakingOverlay } from './ui/PeakingOverlay';
+export { RecordingTimerBadge } from './ui/RecordingTimerBadge';
 export { ScenePresetChips } from './ui/ScenePresetChips';

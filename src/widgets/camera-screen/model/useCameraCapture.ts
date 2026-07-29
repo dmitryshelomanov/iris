@@ -193,6 +193,10 @@ export function useCameraCapture({
 
   const finishRecording = useCallback(
     async (filePath: string) => {
+      setIsRecording(false);
+      isCapturingRef.current = true;
+      setIsCapturing(true);
+
       try {
         const masterUri = await persistVideoMaster(filePath);
         let outPath = filePath;
@@ -236,11 +240,14 @@ export function useCameraCapture({
       } finally {
         recorderRef.current = null;
         stoppingRef.current = false;
+        isCapturingRef.current = false;
         setIsRecording(false);
+        setIsCapturing(false);
       }
     },
     [
       addCapture,
+      isCapturingRef,
       look.hint,
       look.label,
       look.overlay,
@@ -313,6 +320,10 @@ export function useCameraCapture({
     if (!recorder || stoppingRef.current) return;
 
     stoppingRef.current = true;
+    // Hide timer / stop UI immediately; keep capturing locked through apply/bake.
+    setIsRecording(false);
+    isCapturingRef.current = true;
+    setIsCapturing(true);
     setStatus('Stopping…');
     hapticRecordStop();
     try {
@@ -323,9 +334,10 @@ export function useCameraCapture({
       setStatus(message);
       recorderRef.current = null;
       stoppingRef.current = false;
-      setIsRecording(false);
+      isCapturingRef.current = false;
+      setIsCapturing(false);
     }
-  }, []);
+  }, [isCapturingRef]);
 
   const onCapture = useCallback(async () => {
     if (mode === 'video') {

@@ -29,6 +29,7 @@ import {
   ManualControls,
   ModeToggle,
   PeakingOverlay,
+  RecordingTimerBadge,
   ScenePresetChips,
   StabilizationCrosshairOverlay,
   ZoomSwitcher,
@@ -287,16 +288,22 @@ export function CameraScreen() {
           </Pressable>
         </View>
         <View className="items-center px-2">
-          <ModeToggle mode={mode} onChange={setMode} />
-          {session.activeLens ? (
-            <Text className="mt-0.5 text-[10px] font-semibold text-sky-300">
-              {session.activeLens.label}
-              {session.activeLens.focalLengthMm && session.activeLens.position === 'back'
-                ? ` · ${session.activeLens.hint}`
-                : ''}
-              {preview.aeAfLocked ? ' · AE/AF Lock' : ''}
-            </Text>
-          ) : null}
+          {capture.isRecording ? (
+            <RecordingTimerBadge active />
+          ) : (
+            <>
+              <ModeToggle mode={mode} onChange={setMode} />
+              {session.activeLens ? (
+                <Text className="mt-0.5 text-[10px] font-semibold text-sky-300">
+                  {session.activeLens.label}
+                  {session.activeLens.focalLengthMm && session.activeLens.position === 'back'
+                    ? ` · ${session.activeLens.hint}`
+                    : ''}
+                  {preview.aeAfLocked ? ' · AE/AF Lock' : ''}
+                </Text>
+              ) : null}
+            </>
+          )}
         </View>
         <View className="min-h-9 flex-1 flex-row items-center justify-end">
           <Pressable
