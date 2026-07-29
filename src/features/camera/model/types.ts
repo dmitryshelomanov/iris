@@ -20,7 +20,7 @@ export type VideoFpsOption = 30 | 60 | 'max';
 export type LookPresetId =
   'none' | 'kp' | 'kg' | 'ke' | 'fs' | 'fp' | 'ag' | 'as' | 'pd' | 'tc' | 'tx' | 'tn' | 'cm' | 'pp';
 
-export type LensKind = 'optical' | 'crop' | 'front' | 'multi';
+export type LensKind = 'optical' | 'front' | 'multi';
 
 export type LensId = string;
 

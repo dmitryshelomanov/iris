@@ -22,6 +22,21 @@ export function SettingsPage() {
         Capture defaults persist across launches. Looks bake into saved photos.
       </Text>
 
+      <Section title="Looks">
+        <Row label="Strength">
+          <Segmented
+            value={String(settings.lookStrength)}
+            options={[
+              { value: '0.35', label: '35' },
+              { value: '0.55', label: '55' },
+              { value: '0.75', label: '75' },
+              { value: '1', label: '100' },
+            ]}
+            onChange={(lookStrength) => patchSettings({ lookStrength: Number(lookStrength) })}
+          />
+        </Row>
+      </Section>
+
       <Section title="Photo">
         <Row label="Aspect">
           <Segmented

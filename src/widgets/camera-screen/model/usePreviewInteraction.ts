@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState, type RefObject } from 'react';
 import { Gesture } from 'react-native-gesture-handler';
-import { runOnJS, type SharedValue } from 'react-native-reanimated';
+import { runOnJS } from 'react-native-reanimated';
 import type { CameraRef } from 'react-native-vision-camera';
 
 import { hapticFocusLock, type FocusReticleState } from '@/features/camera';
@@ -28,13 +28,6 @@ type Options = {
   countdown: number | null;
   isCapturing: boolean;
   setStatus: (status: string | null) => void;
-  zoomSV: SharedValue<number>;
-  pinchStartZoom: SharedValue<number>;
-  minZoomSV: SharedValue<number>;
-  maxZoomSV: SharedValue<number>;
-  applyLiveZoom: (next: number) => void;
-  syncZoomFromPinchThrottled: (next: number) => void;
-  syncZoomFromGesture: (next: number) => void;
 };
 
 export function usePreviewInteraction({
@@ -43,48 +36,49 @@ export function usePreviewInteraction({
   countdown,
   isCapturing,
   setStatus,
-  zoomSV,
-  pinchStartZoom,
-  minZoomSV,
-  maxZoomSV,
-  applyLiveZoom,
-  syncZoomFromPinchThrottled,
-  syncZoomFromGesture,
 }: Options) {
   const [focusReticle, setFocusReticle] = useState<FocusReticleState>(null);
   const [aeAfLocked, setAeAfLocked] = useState(false);
 
-  const onPreviewTap = useCallback(
-    async (locationX: number, locationY: number) => {
+  const focusAtPoint = useCallback(
+    async (locationX: number, locationY: number, lock: boolean) => {
       if (!canPreviewInteract({ manualEnabled, countdown, isCapturing })) return;
-      setFocusReticle({ x: locationX, y: locationY, locked: false });
-      setAeAfLocked(false);
+      setFocusReticle({ x: locationX, y: locationY, locked: lock });
+      setAeAfLocked(lock);
+      if (lock) {
+        hapticFocusLock();
+        setStatus('AE/AF locked');
+      }
       try {
-        await cameraRef.current?.focusTo({ x: locationX, y: locationY }, FOCUS_OPTIONS_CONTINUOUS);
+        await cameraRef.current?.focusTo(
+          { x: locationX, y: locationY },
+          lock ? FOCUS_OPTIONS_LOCKED : FOCUS_OPTIONS_CONTINUOUS,
+        );
       } catch (error) {
-        setStatus(errorMessage(error, 'Focus failed'));
+        setStatus(errorMessage(error, lock ? 'Lock failed' : 'Focus failed'));
       }
     },
     [cameraRef, countdown, isCapturing, manualEnabled, setStatus],
+  );
+
+  const onPreviewTap = useCallback(
+    (locationX: number, locationY: number) => {
+      void focusAtPoint(locationX, locationY, false);
+    },
+    [focusAtPoint],
   );
 
   const onPreviewLongPress = useCallback(
-    async (locationX: number, locationY: number) => {
-      if (!canPreviewInteract({ manualEnabled, countdown, isCapturing })) return;
-      setFocusReticle({ x: locationX, y: locationY, locked: true });
-      setAeAfLocked(true);
-      hapticFocusLock();
-      setStatus('AE/AF locked');
-      try {
-        await cameraRef.current?.focusTo({ x: locationX, y: locationY }, FOCUS_OPTIONS_LOCKED);
-      } catch (error) {
-        setStatus(errorMessage(error, 'Lock failed'));
-      }
+    (locationX: number, locationY: number) => {
+      void focusAtPoint(locationX, locationY, true);
     },
-    [cameraRef, countdown, isCapturing, manualEnabled, setStatus],
+    [focusAtPoint],
   );
 
   const previewGestures = useMemo(() => {
+    // Native zoom gesture on Camera must run alongside JS tap / long-press.
+    const native = Gesture.Native();
+
     const tap = Gesture.Tap().onEnd((e) => {
       runOnJS(onPreviewTap)(e.x, e.y);
     });
@@ -95,35 +89,8 @@ export function usePreviewInteraction({
         runOnJS(onPreviewLongPress)(e.x, e.y);
       });
 
-    const pinch = Gesture.Pinch()
-      .onBegin(() => {
-        pinchStartZoom.value = zoomSV.value;
-      })
-      .onUpdate((e) => {
-        const next = Math.min(
-          maxZoomSV.value,
-          Math.max(minZoomSV.value, pinchStartZoom.value * e.scale),
-        );
-        zoomSV.value = next;
-        runOnJS(applyLiveZoom)(next);
-        runOnJS(syncZoomFromPinchThrottled)(Number(next.toFixed(3)));
-      })
-      .onEnd(() => {
-        runOnJS(syncZoomFromGesture)(Number(zoomSV.value.toFixed(3)));
-      });
-
-    return Gesture.Simultaneous(pinch, Gesture.Exclusive(longPress, tap));
-  }, [
-    applyLiveZoom,
-    maxZoomSV,
-    minZoomSV,
-    onPreviewLongPress,
-    onPreviewTap,
-    pinchStartZoom,
-    syncZoomFromGesture,
-    syncZoomFromPinchThrottled,
-    zoomSV,
-  ]);
+    return Gesture.Simultaneous(native, Gesture.Exclusive(longPress, tap));
+  }, [onPreviewLongPress, onPreviewTap]);
 
   const unlockAeAf = useCallback(async () => {
     if (!aeAfLocked) return;

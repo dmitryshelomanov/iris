@@ -16,7 +16,7 @@ type Options = {
   settings: CaptureSettings;
   mode: CaptureMode;
   manual: ManualControlsState;
-  zoom: number;
+  getZoom: () => number;
   activeLens: LensOption | undefined;
   lenses: LensOption[];
   setSettings: (settings: CaptureSettings) => void;
@@ -32,7 +32,7 @@ export function useCameraPresets({
   settings,
   mode,
   manual,
-  zoom,
+  getZoom,
   activeLens,
   lenses,
   setSettings,
@@ -108,13 +108,13 @@ export function useCameraPresets({
         settings,
         mode,
         manual,
-        zoom,
+        zoom: getZoom(),
         activeLensId: activeLens?.id ?? null,
       });
       setPresets(list);
       setStatus('Preset saved');
     },
-    [activeLens?.id, manual, mode, settings, setStatus, zoom],
+    [activeLens?.id, getZoom, manual, mode, settings, setStatus],
   );
 
   const renamePreset = useCallback(

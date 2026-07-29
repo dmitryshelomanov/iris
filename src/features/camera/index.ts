@@ -13,21 +13,7 @@ export type {
   ManualControlId,
   ManualControlsState,
 } from './model/types';
-export {
-  buildCapabilities,
-  buildLensCatalog,
-  buildZoomDialMajors,
-  buildZoomSnapPoints,
-  buildZoomSteps,
-  displayBaseZoom,
-  formatZoomFactor,
-  formatZoomLabel,
-  formatZoomMm,
-  pickPrimaryBackDevice,
-  toDisplayZoom,
-  zoomRange,
-  ZOOM_UI_MAX,
-} from './model/lenses';
+export { buildCapabilities, buildLensCatalog, zoomRange } from './model/lenses';
 export { resolveVideoFps } from './model/videoFps';
 export {
   resolvePreviewStabilizationMode,
@@ -53,6 +39,8 @@ export {
 export type { CameraPreset } from './model/capturePresets';
 export { CaptureSettingsProvider, useCaptureSettings } from './model/CaptureSettingsContext';
 export { resolutionForAspect, videoResolutionForAspect } from './model/resolutions';
+export { aspectFrameLayout } from './model/aspectFrame';
+export type { AspectFrameLayout } from './model/aspectFrame';
 export { bakeLookIntoPhoto } from './model/bakeLook';
 export type { BakeLookResult } from './model/bakeLook';
 export {
@@ -80,14 +68,12 @@ export { CameraPresetsDialog } from './ui/CameraPresetsDialog';
 export { CaptureToolbar } from './ui/CaptureToolbar';
 export { CountdownOverlay } from './ui/CountdownOverlay';
 export { GridOverlay } from './ui/GridOverlay';
-export { LensSwitcher } from './ui/LensSwitcher';
 export { LevelOverlay } from './ui/LevelOverlay';
 export { LookOverlay } from './ui/LookOverlay';
 export { LookPresets, LookStrengthSlider } from './ui/LookPresets';
 export { ManualControls } from './ui/ManualControls';
 export { ModeToggle } from './ui/ModeToggle';
 export { StabilizationCrosshairOverlay } from './ui/StabilizationCrosshairOverlay';
-export { ZoomSwitcher } from './ui/ZoomSwitcher';
 export { AspectCropOverlay } from './ui/AspectCropOverlay';
 export { FocusReticle } from './ui/FocusReticle';
 export type { FocusReticleState } from './ui/FocusReticle';

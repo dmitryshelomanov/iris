@@ -13,21 +13,7 @@ export type {
   ManualControlId,
   ManualControlsState,
 } from './types';
-export {
-  buildCapabilities,
-  buildLensCatalog,
-  buildZoomDialMajors,
-  buildZoomSnapPoints,
-  buildZoomSteps,
-  displayBaseZoom,
-  formatZoomFactor,
-  formatZoomLabel,
-  formatZoomMm,
-  pickPrimaryBackDevice,
-  toDisplayZoom,
-  zoomRange,
-  ZOOM_UI_MAX,
-} from './lenses';
+export { buildCapabilities, buildLensCatalog, zoomRange } from './lenses';
 export { resolveVideoFps } from './videoFps';
 export {
   resolvePreviewStabilizationMode,
@@ -53,6 +39,8 @@ export {
 export type { CameraPreset } from './capturePresets';
 export { CaptureSettingsProvider, useCaptureSettings } from './CaptureSettingsContext';
 export { resolutionForAspect, videoResolutionForAspect } from './resolutions';
+export { aspectFrameLayout } from './aspectFrame';
+export type { AspectFrameLayout } from './aspectFrame';
 export { bakeLookIntoPhoto } from './bakeLook';
 export type { BakeLookResult } from './bakeLook';
 export { bakeLookIntoVideo, cancelBakeLookIntoVideo, toFileUri, toPath } from './bakeLookVideo';

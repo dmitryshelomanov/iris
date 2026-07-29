@@ -10,7 +10,6 @@ import {
 import {
   buildCapabilities,
   buildLensCatalog,
-  buildZoomDialMajors,
   resolutionForAspect,
   resolvePreviewStabilizationMode,
   resolveVideoFps,
@@ -28,10 +27,8 @@ function pickFlipTarget(
   targetPosition: 'front' | 'back',
 ): LensOption | undefined {
   if (targetPosition === 'back') {
-    const wide = lenses.find(
-      (l) => l.position === 'back' && l.deviceType === 'wide-angle' && l.isNative,
-    );
-    if (wide) return wide;
+    const multi = lenses.find((l) => l.position === 'back' && l.kind === 'multi');
+    if (multi) return multi;
   }
   return (
     lenses.find((l) => l.position === targetPosition && l.isNative) ??
@@ -71,7 +68,6 @@ export function useCameraSession({ mode, settings, setZoom, setStatus, patchSett
   );
   const device = activeLens?.device;
   const capabilities = useMemo(() => buildCapabilities(device), [device]);
-  const zoomMajors = useMemo(() => buildZoomDialMajors(device), [device]);
   const { min: minZoom, max: maxZoom } = useMemo(() => zoomRange(device), [device]);
   const wideFocalMm = useMemo(() => {
     if (activeLens?.focalLengthMm && activeLens.kind === 'multi') return activeLens.focalLengthMm;
@@ -201,7 +197,6 @@ export function useCameraSession({ mode, settings, setZoom, setStatus, patchSett
     setActiveLensId,
     device,
     capabilities,
-    zoomMajors,
     minZoom,
     maxZoom,
     wideFocalMm,

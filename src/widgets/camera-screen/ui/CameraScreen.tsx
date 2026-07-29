@@ -1,3 +1,4 @@
+import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { useIsFocused, useRouter, type Href } from 'expo-router';
 import {
   Bookmark,
@@ -7,7 +8,14 @@ import {
   SlidersHorizontal,
 } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { AppState, Pressable, StyleSheet, View, type AppStateStatus } from 'react-native';
+import {
+  AppState,
+  Pressable,
+  StyleSheet,
+  View,
+  type AppStateStatus,
+  type LayoutChangeEvent,
+} from 'react-native';
 import { GestureDetector } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Camera, useCameraPermission, useMicrophonePermission } from 'react-native-vision-camera';
@@ -21,18 +29,17 @@ import {
   CountdownOverlay,
   FocusReticle,
   GridOverlay,
-  LensSwitcher,
   LevelOverlay,
   LookOverlay,
   LookPresets,
-  LookStrengthSlider,
   ManualControls,
   ModeToggle,
   PeakingOverlay,
   RecordingTimerBadge,
   ScenePresetChips,
   StabilizationCrosshairOverlay,
-  ZoomSwitcher,
+  aspectFrameLayout,
+  clamp,
   defaultPresetName,
   useCaptureSettings,
   useVolumeShutter,
@@ -55,9 +62,6 @@ import {
 import { CameraPermissionView } from './CameraPermissionView';
 import { CameraUnavailableView } from './CameraUnavailableView';
 
-/** Approximate preview height used to map focus reticle Y → peaking plane (0…1). */
-const PREVIEW_HEIGHT_ESTIMATE = 700;
-
 export function CameraScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -74,9 +78,17 @@ export function CameraScreen() {
   const [postCaptureOpen, setPostCaptureOpen] = useState(false);
   const [lookScene, setLookScene] = useState<LookSceneId>('all');
   const [appState, setAppState] = useState<AppStateStatus>(AppState.currentState);
+  const [previewSize, setPreviewSize] = useState({ width: 0, height: 0 });
   // Sync gate for manual apply (ref) + UI disable (state via capture.isCapturing).
   const isCapturingRef = useRef(false);
   const cameraActive = isFocused && appState === 'active';
+
+  const onPreviewLayout = useCallback((e: LayoutChangeEvent) => {
+    const { width, height } = e.nativeEvent.layout;
+    setPreviewSize((prev) =>
+      prev.width === width && prev.height === height ? prev : { width, height },
+    );
+  }, []);
 
   // Session needs setZoom before zoom hook exists — bridge via ref.
   const setZoomRef = useRef<(next: number | ((prev: number) => number)) => void>(() => {});
@@ -134,13 +146,6 @@ export function CameraScreen() {
     countdown: capture.countdown,
     isCapturing: capture.isCapturing,
     setStatus,
-    zoomSV: zoom.zoomSV,
-    pinchStartZoom: zoom.pinchStartZoom,
-    minZoomSV: zoom.minZoomSV,
-    maxZoomSV: zoom.maxZoomSV,
-    applyLiveZoom: zoom.applyLiveZoom,
-    syncZoomFromPinchThrottled: zoom.syncZoomFromPinchThrottled,
-    syncZoomFromGesture: zoom.syncZoomFromGesture,
   });
 
   const overlays = useLiveOverlays({
@@ -155,7 +160,7 @@ export function CameraScreen() {
     settings,
     mode,
     manual: manual.manual,
-    zoom: zoom.zoom,
+    getZoom: zoom.getZoom,
     activeLens: session.activeLens,
     lenses: session.lenses,
     setSettings,
@@ -188,6 +193,15 @@ export function CameraScreen() {
     return () => sub.remove();
   }, []);
 
+  useEffect(() => {
+    if (!cameraActive) return;
+    activateKeepAwakeAsync('iris-camera');
+
+    return () => {
+      deactivateKeepAwake('iris-camera');
+    };
+  }, [cameraActive]);
+
   // Ask for mic early so video output can enableAudio before the first record.
   useEffect(() => {
     if (!hasPermission || mic.hasPermission || !mic.canRequestPermission) return;
@@ -213,60 +227,87 @@ export function CameraScreen() {
   }
 
   const device = session.device;
+  const frame = aspectFrameLayout(previewSize.width, previewSize.height, settings.aspect);
+  const hasFrame = frame.width > 0;
+  const frameStyle = hasFrame
+    ? {
+        position: 'absolute' as const,
+        top: frame.top,
+        left: frame.left,
+        width: frame.width,
+        height: frame.height,
+      }
+    : null;
+  const peakingFocusY = preview.focusReticle
+    ? clamp(preview.focusReticle.y / frame.height, 0.05, 0.95)
+    : 0.5;
 
   return (
-    <View className="flex-1 bg-black">
-      <Camera
-        ref={session.cameraRef}
-        style={StyleSheet.absoluteFill}
-        device={device}
-        isActive={cameraActive}
-        outputs={[session.photoOutput, session.videoOutput]}
-        constraints={session.constraints}
-        zoom={zoom.zoom}
-        torchMode={session.capabilities.hasTorch ? (settings.torchOn ? 'on' : 'off') : undefined}
-        mirrorMode={settings.mirrorMode}
-        enableLowLightBoost={
-          session.capabilities.supportsLowLightBoost ? settings.lowLightBoost : undefined
-        }
-        enableDistortionCorrection={
-          session.capabilities.supportsDistortionCorrection
-            ? settings.distortionCorrection
-            : undefined
-        }
-        enableNativeTapToFocusGesture={false}
-        enableNativeZoomGesture={false}
-        onConfigured={session.onSessionConfigured}
-        onStarted={() => session.setControllerReady((n) => n + 1)}
-        onError={(error) => setStatus(error.message)}
-      />
+    <View className="flex-1 bg-black" onLayout={onPreviewLayout}>
+      {hasFrame && frameStyle ? (
+        <View style={frameStyle}>
+          <GestureDetector gesture={preview.previewGestures}>
+            <Camera
+              ref={session.cameraRef}
+              style={StyleSheet.absoluteFill}
+              device={device}
+              isActive={cameraActive}
+              outputs={[session.photoOutput, session.videoOutput]}
+              constraints={session.constraints}
+              torchMode={
+                session.capabilities.hasTorch ? (settings.torchOn ? 'on' : 'off') : undefined
+              }
+              mirrorMode={settings.mirrorMode}
+              enableLowLightBoost={
+                session.capabilities.supportsLowLightBoost ? settings.lowLightBoost : undefined
+              }
+              enableDistortionCorrection={
+                session.capabilities.supportsDistortionCorrection
+                  ? settings.distortionCorrection
+                  : undefined
+              }
+              enableNativeTapToFocusGesture={false}
+              enableNativeZoomGesture
+              onConfigured={session.onSessionConfigured}
+              onStarted={() => session.setControllerReady((n) => n + 1)}
+              onError={(error) => setStatus(error.message)}
+            />
+          </GestureDetector>
 
-      <GestureDetector gesture={preview.previewGestures}>
-        <View style={StyleSheet.absoluteFill} collapsable={false} />
-      </GestureDetector>
+          <FocusReticle state={preview.focusReticle} />
+        </View>
+      ) : null}
 
-      {settings.showAspectCrop ? <AspectCropOverlay aspect={settings.aspect} /> : null}
-      <LookOverlay overlay={capture.look.overlay} strength={settings.lookStrength} />
-      {settings.showCrosshair ? <StabilizationCrosshairOverlay active={cameraActive} /> : null}
-      {settings.showGrid ? <GridOverlay /> : null}
-      {settings.showLevel ? <LevelOverlay active={cameraActive} /> : null}
-      {settings.showPeaking ? (
-        <PeakingOverlay
-          intensity={overlays.peakIntensity}
-          focusY={
-            preview.focusReticle
-              ? Math.min(
-                  0.95,
-                  Math.max(
-                    0.05,
-                    preview.focusReticle.y / Math.max(1, insets.top + PREVIEW_HEIGHT_ESTIMATE),
-                  ),
-                )
-              : 0.5
-          }
+      {settings.showAspectCrop ? (
+        <AspectCropOverlay
+          aspect={settings.aspect}
+          width={previewSize.width}
+          height={previewSize.height}
         />
       ) : null}
-      <FocusReticle state={preview.focusReticle} />
+      {hasFrame && frameStyle ? (
+        <View
+          pointerEvents="none"
+          style={{
+            ...frameStyle,
+            overflow: 'hidden',
+          }}
+        >
+          <LookOverlay overlay={capture.look.overlay} strength={settings.lookStrength} />
+          {settings.showPeaking ? (
+            <PeakingOverlay intensity={overlays.peakIntensity} focusY={peakingFocusY} />
+          ) : null}
+        </View>
+      ) : null}
+      {settings.showCrosshair ? <StabilizationCrosshairOverlay active={cameraActive} /> : null}
+      {settings.showGrid ? (
+        <GridOverlay
+          aspect={settings.aspect}
+          width={previewSize.width}
+          height={previewSize.height}
+        />
+      ) : null}
+      {settings.showLevel ? <LevelOverlay active={cameraActive} /> : null}
       <CountdownOverlay seconds={capture.countdown} />
       {capture.countdown != null ? (
         <Pressable
@@ -303,9 +344,6 @@ export function CameraScreen() {
               {session.activeLens ? (
                 <Text className="mt-0.5 text-[10px] font-semibold text-sky-300">
                   {session.activeLens.label}
-                  {session.activeLens.focalLengthMm && session.activeLens.position === 'back'
-                    ? ` · ${session.activeLens.hint}`
-                    : ''}
                   {preview.aeAfLocked ? ' · AE/AF Lock' : ''}
                 </Text>
               ) : null}
@@ -354,30 +392,6 @@ export function CameraScreen() {
           scene={lookScene}
           onSceneChange={setLookScene}
           onChange={manual.onLookChange}
-        />
-        {settings.lookId !== 'none' ? (
-          <LookStrengthSlider
-            value={settings.lookStrength}
-            onChange={(lookStrength) => patchSettings({ lookStrength })}
-          />
-        ) : null}
-
-        <ZoomSwitcher
-          majors={session.zoomMajors}
-          zoom={zoom.zoom}
-          zoomSV={zoom.zoomSV}
-          device={device}
-          wideFocalMm={session.wideFocalMm}
-          minZoom={session.minZoom}
-          maxZoom={session.maxZoom}
-          onChange={zoom.setZoom}
-          onLiveZoom={zoom.applyLiveZoom}
-        />
-
-        <LensSwitcher
-          lenses={session.lenses}
-          activeId={session.activeLens?.id}
-          onChange={session.onSelectLens}
         />
 
         {manual.showManual ? (
