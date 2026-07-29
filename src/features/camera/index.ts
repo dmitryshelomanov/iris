@@ -30,6 +30,10 @@ export {
 } from './model/lenses';
 export { resolveVideoFps } from './model/videoFps';
 export {
+  resolvePreviewStabilizationMode,
+  resolveVideoStabilizationMode,
+} from './model/videoStabilization';
+export {
   LOOK_PRESETS,
   getLookPreset,
   applyLookToManual,

@@ -340,7 +340,7 @@ export function buildCapabilities(device: CameraDevice | undefined): CameraCapab
     supportsLowLightBoost: device?.supportsLowLightBoost ?? false,
     supportsDistortionCorrection: device?.supportsDistortionCorrection ?? false,
     supportsPhotoHDR: device?.supportsPhotoHDR ?? false,
-    supportsVideoStabilization: device?.supportsVideoStabilizationMode('auto') ?? false,
+    supportsVideoStabilization: device?.supportsVideoStabilizationMode('standard') ?? false,
     supportsSpeedQuality: device?.supportsSpeedQualityPrioritization ?? false,
     minExposureBias: device?.minExposureBias ?? -3,
     maxExposureBias: device?.maxExposureBias ?? 3,

@@ -78,7 +78,7 @@ export function SettingsPage() {
         <Separator />
         <ToggleRow
           label="Video stabilization"
-          hint="EIS — crops FoV, may add slight latency"
+          hint="Cinematic EIS — crops FoV, adds latency; weaker at 60 fps"
           value={settings.videoStabilization}
           onChange={(videoStabilization) => patchSettings({ videoStabilization })}
         />

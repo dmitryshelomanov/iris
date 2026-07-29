@@ -82,7 +82,7 @@ export interface CaptureSettings {
   photoHDR: boolean;
   shutterSound: boolean;
   distortionCorrection: boolean;
-  /** System EIS for video capture (VisionCamera videoStabilizationMode). */
+  /** System EIS for video capture (strongest supported VisionCamera mode). */
   videoStabilization: boolean;
   /** Target video frame rate (applied as VisionCamera `{ fps }` constraint). */
   videoFps: VideoFpsOption;

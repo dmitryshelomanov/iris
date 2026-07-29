@@ -12,7 +12,9 @@ import {
   buildLensCatalog,
   buildZoomDialMajors,
   resolutionForAspect,
+  resolvePreviewStabilizationMode,
   resolveVideoFps,
+  resolveVideoStabilizationMode,
   videoResolutionForAspect,
   zoomRange,
   type CaptureMode,
@@ -78,18 +80,20 @@ export function useCameraSession({ mode, settings, setZoom, setStatus, patchSett
     if (settings.photoHDR && capabilities.supportsPhotoHDR && mode === 'photo') {
       list.push({ photoHDR: true });
     }
-    if (
-      mode === 'video' &&
-      settings.videoStabilization &&
-      capabilities.supportsVideoStabilization
-    ) {
-      list.push({ videoStabilizationMode: 'auto' });
-      if (device?.supportsPreviewStabilizationMode('auto')) {
-        list.push({ previewStabilizationMode: 'auto' });
+    if (mode === 'video' && settings.videoStabilization) {
+      const videoStab = resolveVideoStabilizationMode(device);
+      if (videoStab != null) {
+        list.push({ videoStabilizationMode: videoStab });
+      }
+      const previewStab = resolvePreviewStabilizationMode(device);
+      if (previewStab != null) {
+        list.push({ previewStabilizationMode: previewStab });
       }
     }
     if (mode === 'video') {
-      const fps = resolveVideoFps(device, settings.videoFps);
+      const fps = resolveVideoFps(device, settings.videoFps, {
+        preferStabilization: settings.videoStabilization,
+      });
       if (fps != null) list.push({ fps });
     }
     return list;
@@ -101,7 +105,6 @@ export function useCameraSession({ mode, settings, setZoom, setStatus, patchSett
     settings.videoStabilization,
     settings.videoFps,
     capabilities.supportsPhotoHDR,
-    capabilities.supportsVideoStabilization,
     device,
   ]);
 
