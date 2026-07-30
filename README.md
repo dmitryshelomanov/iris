@@ -2,7 +2,12 @@
   <img src="./assets/images/splash-icon.png" alt="Iris" width="120" />
   <h1>Iris</h1>
   <p>
-    <strong>Expo SDK 57</strong> · <strong>Vision Camera v5</strong> · <strong>iOS</strong> · <strong>MIT</strong>
+    <strong>Expo SDK 57</strong> · <strong>Vision Camera v5</strong> · <strong>iOS</strong> · <strong>Android</strong> · <strong>MIT</strong>
+  </p>
+  <p>
+    <a href="https://dmitryshelomanov.github.io/iris/"><strong>Website</strong></a>
+    ·
+    <a href="https://dmitryshelomanov.github.io/iris/privacy/">Privacy</a>
   </p>
 </div>
 
@@ -55,6 +60,7 @@ npm start              # expo start --dev-client
 
 ### Links
 
+- **Website:** [dmitryshelomanov.github.io/iris](https://dmitryshelomanov.github.io/iris/)
 - [Repository](https://github.com/dmitryshelomanov/iris)
 - [Issues](https://github.com/dmitryshelomanov/iris/issues)
 - [Expo SDK 57 docs](https://docs.expo.dev/versions/v57.0.0/)
