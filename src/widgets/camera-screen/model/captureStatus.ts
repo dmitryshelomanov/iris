@@ -1,5 +1,28 @@
 import type { LookPreset } from '@/features/camera';
 
+/** Structured bake / capture processing phase for BakeOverlay. */
+export type BakePhase =
+  | { id: 'capturing' }
+  | { id: 'burst'; index: number; total: number }
+  | { id: 'applyingLook' }
+  | { id: 'applyingAnime' }
+  | { id: 'saving' };
+
+export function bakePhaseLabel(phase: BakePhase): string {
+  switch (phase.id) {
+    case 'capturing':
+      return 'Capturing…';
+    case 'burst':
+      return `Burst ${phase.index}/${phase.total}…`;
+    case 'applyingLook':
+      return 'Applying look…';
+    case 'applyingAnime':
+      return 'Anime stylizing…';
+    case 'saving':
+      return 'Saving…';
+  }
+}
+
 export const captureStatus = {
   cameraWarmingUp: () => 'Camera warming up…',
   capturingPhoto: () => 'Capturing…',

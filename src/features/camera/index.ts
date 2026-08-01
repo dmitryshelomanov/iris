@@ -72,6 +72,7 @@ export {
 export { CaptureButton } from './ui/CaptureButton';
 export { CameraPresetsDialog } from './ui/CameraPresetsDialog';
 export { CaptureToolbar } from './ui/CaptureToolbar';
+export { BakeOverlay } from './ui/BakeOverlay';
 export { CountdownOverlay } from './ui/CountdownOverlay';
 export { GridOverlay } from './ui/GridOverlay';
 export { LevelOverlay } from './ui/LevelOverlay';

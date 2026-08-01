@@ -16,7 +16,7 @@ import {
 } from '@/features/camera';
 import { errorMessage } from '@/shared/lib/errorMessage';
 
-import { captureStatus } from './captureStatus';
+import { captureStatus, type BakePhase } from './captureStatus';
 import { useCaptureLock } from './useCaptureLock';
 
 type VideoOutput = ReturnType<typeof useVideoOutput>;
@@ -55,6 +55,7 @@ export function useVideoCapture({
   shouldStopOnInactive,
 }: Options) {
   const [phase, setPhase] = useState<VideoCapturePhase>('idle');
+  const [bakePhase, setBakePhase] = useState<BakePhase | null>(null);
   const recorderRef = useRef<Recorder | null>(null);
   const stoppingRef = useRef(false);
   const { isCapturing, beginCapture, endCapture } = useCaptureLock(isCapturingRef);
@@ -74,7 +75,8 @@ export function useVideoCapture({
         let lookApplied = false;
 
         if (!skipLook) {
-          setStatus(captureStatus.applyingLook());
+          setBakePhase({ id: 'applyingLook' });
+          setStatus(null);
           const baked = await bakeLookIntoVideo(masterUri, lookPreset.overlay, {
             strength: settings.lookStrength,
           });
@@ -88,7 +90,8 @@ export function useVideoCapture({
 
         const savedLookId = skipLook ? 'none' : settings.lookId;
 
-        setStatus(captureStatus.savingVideo());
+        setBakePhase({ id: 'saving' });
+        setStatus(null);
         const asset = await saveVideoToLibrary(outPath);
         await addCapture({
           uri,
@@ -98,6 +101,7 @@ export function useVideoCapture({
           lookId: savedLookId,
           lookStrength: settings.lookStrength,
         });
+        setBakePhase(null);
         if (savedLookId === 'none') {
           setStatus(
             isAnimeMlLook(lookPreset)
@@ -113,6 +117,7 @@ export function useVideoCapture({
       } catch (error) {
         const message = errorMessage(error, 'Save failed');
         console.warn('[iris] video save failed', error);
+        setBakePhase(null);
         setStatus(message);
       } finally {
         recorderRef.current = null;
@@ -234,6 +239,7 @@ export function useVideoCapture({
 
   return {
     isCapturing,
+    bakePhase,
     isRecording,
     startRecording,
     stopRecording,

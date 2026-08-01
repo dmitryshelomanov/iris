@@ -93,6 +93,7 @@ export function useCameraCapture({
     shouldStopOnInactive: mode !== 'video',
   });
   const isCapturing = photo.isCapturing || video.isCapturing;
+  const bakePhase = photo.bakePhase ?? video.bakePhase;
 
   const onCapture = useCallback(async () => {
     if (mode === 'video') {
@@ -142,6 +143,7 @@ export function useCameraCapture({
   return {
     look,
     isCapturing,
+    bakePhase,
     isRecording: video.isRecording,
     countdown,
     cancelCountdown,

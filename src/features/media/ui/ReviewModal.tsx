@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { FlatList, Image, Modal, Pressable, Share, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useVideoPlayer, VideoView } from 'expo-video';
@@ -8,6 +8,7 @@ import { Heart, X } from 'lucide-react-native';
 
 import { fileUriExists, type RecentCapture } from '@/entities/capture';
 import {
+  BakeOverlay,
   cancelBakeLookIntoVideo,
   getLookPreset,
   isAnimeMlLook,
@@ -96,14 +97,19 @@ function BeforeAfterPhoto({ bakedUri, rawUri }: { bakedUri: string; rawUri: stri
   return (
     <GestureDetector gesture={gesture}>
       <View className="flex-1 overflow-hidden">
-        <Image source={{ uri: bakedUri }} style={{ flex: 1 }} resizeMode="contain" />
+        <Image key={bakedUri} source={{ uri: bakedUri }} style={{ flex: 1 }} resizeMode="contain" />
         <Animated.View
           style={[
             { position: 'absolute', top: 0, bottom: 0, left: 0, overflow: 'hidden' },
             leftStyle,
           ]}
         >
-          <Image source={{ uri: rawUri }} style={{ width, height: '100%' }} resizeMode="contain" />
+          <Image
+            key={rawUri}
+            source={{ uri: rawUri }}
+            style={{ width, height: '100%' }}
+            resizeMode="contain"
+          />
         </Animated.View>
         <Animated.View
           pointerEvents="none"
@@ -173,7 +179,7 @@ export function ReviewModal({
   const [rebaking, setRebaking] = useState(false);
   const [rebakeError, setRebakeError] = useState<string | null>(null);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (visible) {
       setIndex(initialIndex);
       setCompare(false);
@@ -194,7 +200,7 @@ export function ReviewModal({
     };
   }, []);
 
-  const current = recents[index] ?? recents[0] ?? null;
+  const current = visible ? (recents[index] ?? recents[0] ?? null) : null;
   const masterExists = fileUriExists(current?.rawUri);
   const canCompare =
     !!current?.rawUri &&
@@ -304,28 +310,48 @@ export function ReviewModal({
           )}
         </View>
 
-        {current?.kind === 'photo' ? (
-          compare && canCompare && current.rawUri ? (
-            <BeforeAfterPhoto bakedUri={current.uri} rawUri={current.rawUri} />
-          ) : (
-            <Image source={{ uri: current.uri }} className="flex-1" resizeMode="contain" />
-          )
-        ) : current ? (
+        {visible ? (
           <View className="flex-1">
-            <VideoPlayer
-              key={compare && canCompare && current.rawUri ? current.rawUri : current.uri}
-              uri={compare && canCompare && current.rawUri ? current.rawUri : current.uri}
+            {current?.kind === 'photo' ? (
+              compare && canCompare && current.rawUri ? (
+                <BeforeAfterPhoto bakedUri={current.uri} rawUri={current.rawUri} />
+              ) : (
+                <Image
+                  key={current.id}
+                  source={{ uri: current.uri }}
+                  className="flex-1"
+                  resizeMode="contain"
+                />
+              )
+            ) : current ? (
+              <View className="flex-1">
+                <VideoPlayer
+                  key={compare && canCompare && current.rawUri ? current.rawUri : current.uri}
+                  uri={compare && canCompare && current.rawUri ? current.rawUri : current.uri}
+                />
+                {compare && canCompare ? (
+                  <Text className="absolute left-4 top-4 rounded-full bg-black/55 px-3 py-1 text-[11px] font-semibold text-white">
+                    Master (before look)
+                  </Text>
+                ) : null}
+              </View>
+            ) : (
+              <View className="flex-1 items-center justify-center">
+                <Text className="text-white/50">No captures yet</Text>
+              </View>
+            )}
+            <BakeOverlay
+              label={
+                rebaking
+                  ? isAnimeMlLook(draftLookId)
+                    ? 'Anime stylizing…'
+                    : 'Applying look…'
+                  : null
+              }
             />
-            {compare && canCompare ? (
-              <Text className="absolute left-4 top-4 rounded-full bg-black/55 px-3 py-1 text-[11px] font-semibold text-white">
-                Master (before look)
-              </Text>
-            ) : null}
           </View>
         ) : (
-          <View className="flex-1 items-center justify-center">
-            <Text className="text-white/50">No captures yet</Text>
-          </View>
+          <View className="flex-1" />
         )}
 
         {current ? <MetadataStrip capture={current} /> : null}

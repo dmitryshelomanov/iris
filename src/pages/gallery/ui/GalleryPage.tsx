@@ -15,7 +15,9 @@ import { ArrowLeft, Check, Heart } from 'lucide-react-native';
 
 import { toggleFavoriteRecent } from '@/entities/capture';
 import {
+  BakeOverlay,
   getLookPreset,
+  isAnimeMlLook,
   resolveLookPresetId,
   useCaptureSettings,
   type LookPresetId,
@@ -475,7 +477,18 @@ export function GalleryPage() {
             <View className="w-9" />
           </View>
           {importUri ? (
-            <Image source={{ uri: importUri }} className="flex-1" resizeMode="contain" />
+            <View className="flex-1">
+              <Image source={{ uri: importUri }} className="flex-1" resizeMode="contain" />
+              <BakeOverlay
+                label={
+                  importBusy
+                    ? isAnimeMlLook(draftLookId)
+                      ? 'Anime stylizing…'
+                      : 'Applying look…'
+                    : null
+                }
+              />
+            </View>
           ) : null}
           <LookBakeSheet
             title="Bake look"

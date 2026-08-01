@@ -23,6 +23,7 @@ import { Camera, useCameraPermission, useMicrophonePermission } from 'react-nati
 import { toggleFavoriteRecent } from '@/entities/capture';
 import {
   AspectCropOverlay,
+  BakeOverlay,
   CameraPresetsDialog,
   CaptureButton,
   CaptureToolbar,
@@ -62,7 +63,7 @@ import {
   useLiveOverlays,
   usePreviewInteraction,
 } from '../model';
-import { captureStatus } from '../model/captureStatus';
+import { bakePhaseLabel, captureStatus } from '../model/captureStatus';
 import { CameraPermissionView } from './CameraPermissionView';
 import { CameraUnavailableView } from './CameraUnavailableView';
 
@@ -128,13 +129,13 @@ export function CameraScreen() {
 
   const onModeChange = useCallback(
     (next: CaptureMode) => {
+      // Keep lookId in store — video bake already skips Anime ML; restore on photo return.
       if (next === 'video' && isAnimeMlLook(settings.lookId)) {
-        patchSettings({ lookId: 'none' });
         setStatus(captureStatus.animeMlPhotoOnly());
       }
       setMode(next);
     },
-    [patchSettings, settings.lookId],
+    [settings.lookId],
   );
 
   const onLookChange = useCallback(
@@ -164,6 +165,9 @@ export function CameraScreen() {
     addCapture,
     setPostCaptureOpen,
   });
+
+  const bakeOverlayLabel =
+    capture.bakePhase && !capture.isRecording ? bakePhaseLabel(capture.bakePhase) : null;
 
   const preview = usePreviewInteraction({
     cameraRef: session.cameraRef,
@@ -338,6 +342,7 @@ export function CameraScreen() {
       ) : null}
       {settings.showLevel ? <LevelOverlay active={cameraActive} /> : null}
       <CountdownOverlay seconds={capture.countdown} />
+      <BakeOverlay label={bakeOverlayLabel} />
       {capture.countdown != null ? (
         <Pressable
           onPress={capture.cancelCountdown}
@@ -394,7 +399,9 @@ export function CameraScreen() {
         className="absolute bottom-0 left-0 right-0 z-10 gap-1.5 px-3"
         style={{ paddingBottom: insets.bottom + 8 }}
       >
-        {status ? <Text className="text-center text-[11px] text-white/70">{status}</Text> : null}
+        {status && !bakeOverlayLabel ? (
+          <Text className="text-center text-[11px] text-white/70">{status}</Text>
+        ) : null}
 
         <CaptureToolbar
           flashMode={settings.flashMode}

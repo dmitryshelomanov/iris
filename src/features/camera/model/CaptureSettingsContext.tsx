@@ -61,7 +61,19 @@ export function CaptureSettingsProvider({ children }: { children: ReactNode }) {
     (async () => {
       try {
         const raw = await AsyncStorage.getItem(SETTINGS_KEY);
-        if (!cancelled) setSettingsState(mergeStored(raw));
+        const merged = mergeStored(raw);
+        if (!cancelled) setSettingsState(merged);
+        // Self-heal stale / legacy lookId so storage matches resolved presets.
+        if (raw) {
+          try {
+            const parsed = JSON.parse(raw) as Partial<CaptureSettings>;
+            if (parsed.lookId !== merged.lookId) {
+              await AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify(pickPersisted(merged)));
+            }
+          } catch {
+            // ignore malformed payload — mergeStored already fell back to defaults
+          }
+        }
       } finally {
         if (!cancelled) setReady(true);
       }
