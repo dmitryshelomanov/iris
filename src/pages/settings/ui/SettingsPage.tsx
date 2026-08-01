@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Linking, Pressable, ScrollView, View } from 'react-native';
+import Constants from 'expo-constants';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { MirrorMode, QualityPrioritization } from 'react-native-vision-camera';
 
@@ -8,6 +9,13 @@ import { Separator } from '@/shared/ui/separator';
 import { Text } from '@/shared/ui/text';
 import { useCaptureSettings, type AspectRatio, type VideoFpsOption } from '@/features/camera';
 import { cn } from '@/shared/lib/utils';
+
+function appVersionLabel(): string {
+  const version =
+    Constants.nativeApplicationVersion ?? Constants.expoConfig?.version ?? '1.0.0';
+  const build = Constants.nativeBuildVersion;
+  return build ? `Version ${version} (${build})` : `Version ${version}`;
+}
 
 export function SettingsPage() {
   const insets = useSafeAreaInsets();
@@ -204,6 +212,29 @@ export function SettingsPage() {
         <Button onPress={() => Linking.openSettings()}>
           <Text className="text-primary-foreground">Open system settings</Text>
         </Button>
+      </View>
+
+      <View className="mt-8 items-center gap-1.5 pb-2">
+        <Text className="text-center text-[11px] text-muted-foreground">{appVersionLabel()}</Text>
+        <Text className="text-center text-[11px] text-muted-foreground">
+          Built by Dmitry Shelomanov · MIT
+        </Text>
+        <View className="flex-row flex-wrap items-center justify-center gap-x-3 gap-y-1">
+          <Pressable onPress={() => Linking.openURL('https://dmitryshelomanov.github.io/')}>
+            <Text className="text-[11px] font-semibold text-amber-500">Site</Text>
+          </Pressable>
+          <Pressable onPress={() => Linking.openURL('https://github.com/dmitryshelomanov/iris')}>
+            <Text className="text-[11px] font-semibold text-amber-500">GitHub</Text>
+          </Pressable>
+          <Pressable onPress={() => Linking.openURL('https://t.me/dmitryshelomanov')}>
+            <Text className="text-[11px] font-semibold text-amber-500">Telegram</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => Linking.openURL('https://dmitryshelomanov.github.io/iris/privacy/')}
+          >
+            <Text className="text-[11px] font-semibold text-amber-500">Privacy</Text>
+          </Pressable>
+        </View>
       </View>
     </ScrollView>
   );
