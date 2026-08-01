@@ -13,6 +13,7 @@ import {
   getLookPreset,
   isAnimeMlLook,
   resolveLookPresetId,
+  useCaptureSettings,
   type LookPresetId,
 } from '@/features/camera';
 import { Icon } from '@/shared/ui/icon';
@@ -23,6 +24,8 @@ import { cn } from '@/shared/lib/utils';
 import { rebakeLook } from '../model/rebakeLook';
 import { useRecents } from '../model/RecentsContext';
 import { LookBakeSheet } from './LookBakeSheet';
+
+const QUICK_ANIME_LOOKS: LookPresetId[] = ['sk', 'hy'];
 
 type Props = {
   visible: boolean;
@@ -61,7 +64,7 @@ function MetadataStrip({ capture }: { capture: RecentCapture }) {
   if (lookId) {
     const look = getLookPreset(lookId);
     const strength =
-      !isAnimeMlLook(look) && capture.lookStrength != null && lookId !== 'none'
+      capture.lookStrength != null && lookId !== 'none'
         ? ` · ${Math.round(capture.lookStrength * 100)}%`
         : '';
     parts.push(`${look.label}${strength}`);
@@ -166,6 +169,7 @@ export function ReviewModal({
 }: Props) {
   const insets = useSafeAreaInsets();
   const { refresh } = useRecents();
+  const { settings } = useCaptureSettings();
   const initialIndex = useMemo(() => {
     if (!initialId) return 0;
     const idx = recents.findIndex((r) => r.id === initialId);
@@ -236,19 +240,18 @@ export function ReviewModal({
     setLookSheet(true);
   };
 
-  const applyRebake = async () => {
+  const applyRebakeWith = async (lookId: LookPresetId, lookStrength: number) => {
     if (!current || !canRebake || rebaking) return;
     const recentId = current.id;
     setRebaking(true);
     setRebakeError(null);
     try {
-      await rebakeLook(recentId, {
-        lookId: draftLookId,
-        lookStrength: draftStrength,
-      });
+      await rebakeLook(recentId, { lookId, lookStrength });
       // Ignore stale completion if the user somehow changed selection mid-bake.
       if (recentId !== (recents[index] ?? recents[0])?.id) return;
       await refresh();
+      // Re-bake prepends a new entry — jump to it; source stays in the list.
+      setIndex(0);
       setCompare(false);
       setLookSheet(false);
     } catch (error) {
@@ -258,6 +261,15 @@ export function ReviewModal({
       setRebaking(false);
     }
   };
+
+  const applyRebake = () => applyRebakeWith(draftLookId, draftStrength);
+
+  const quickAnimeRebake = (lookId: LookPresetId) => {
+    if (current?.kind !== 'photo') return;
+    void applyRebakeWith(lookId, settings.lookStrength);
+  };
+
+  const showQuickAnime = canRebake && current?.kind === 'photo';
 
   return (
     <Modal
@@ -414,51 +426,100 @@ export function ReviewModal({
             }}
           />
         ) : (
-          <View className="flex-row flex-wrap gap-2 px-4 pb-3">
-            {canCompare ? (
+          <View className="gap-2 px-4 pb-3">
+            {rebakeError ? (
+              <Text className="text-center text-[11px] text-red-300">{rebakeError}</Text>
+            ) : null}
+            <View className="flex-row flex-wrap gap-2">
+              {canCompare ? (
+                <Pressable
+                  onPress={() => setCompare((v) => !v)}
+                  disabled={rebaking}
+                  className={cn(
+                    'items-center rounded-xl px-4 py-3',
+                    compare ? 'bg-amber-400' : 'bg-white/15',
+                    rebaking && 'opacity-40',
+                  )}
+                >
+                  <Text className={cn('font-semibold', compare ? 'text-black' : 'text-white')}>
+                    Before / After
+                  </Text>
+                </Pressable>
+              ) : null}
+              {canRebake ? (
+                <Pressable
+                  onPress={openLookSheet}
+                  disabled={rebaking}
+                  className={cn(
+                    'items-center rounded-xl bg-white/15 px-4 py-3',
+                    rebaking && 'opacity-40',
+                  )}
+                >
+                  <Text className="font-semibold text-white">Look</Text>
+                </Pressable>
+              ) : null}
+              {showQuickAnime
+                ? QUICK_ANIME_LOOKS.map((lookId) => {
+                    const look = getLookPreset(lookId);
+                    const active = resolveLookPresetId(current?.lookId) === lookId;
+                    return (
+                      <Pressable
+                        key={lookId}
+                        onPress={() => quickAnimeRebake(lookId)}
+                        disabled={rebaking}
+                        className={cn(
+                          'items-center rounded-xl px-4 py-3',
+                          active ? 'bg-amber-400/25' : 'bg-white/15',
+                          rebaking && 'opacity-40',
+                        )}
+                      >
+                        <Text
+                          className={cn(
+                            'font-semibold',
+                            active ? 'text-amber-300' : 'text-white',
+                          )}
+                        >
+                          {look.label}
+                        </Text>
+                      </Pressable>
+                    );
+                  })
+                : null}
               <Pressable
-                onPress={() => setCompare((v) => !v)}
+                onPress={share}
+                disabled={!current || rebaking}
                 className={cn(
-                  'items-center rounded-xl px-4 py-3',
-                  compare ? 'bg-amber-400' : 'bg-white/15',
+                  'min-w-[30%] flex-1 items-center rounded-xl bg-white py-3',
+                  rebaking && 'opacity-40',
                 )}
               >
-                <Text className={cn('font-semibold', compare ? 'text-black' : 'text-white')}>
-                  Before / After
+                <Text className="font-semibold text-black">Share</Text>
+              </Pressable>
+              <Pressable
+                onPress={onClose}
+                disabled={rebaking}
+                className={cn(
+                  'min-w-[30%] flex-1 items-center rounded-xl bg-white/15 py-3',
+                  rebaking && 'opacity-40',
+                )}
+              >
+                <Text className="font-semibold text-white">
+                  {postCapture ? 'Shoot again' : 'Done'}
                 </Text>
               </Pressable>
-            ) : null}
-            {canRebake ? (
-              <Pressable
-                onPress={openLookSheet}
-                className="items-center rounded-xl bg-white/15 px-4 py-3"
-              >
-                <Text className="font-semibold text-white">Look</Text>
-              </Pressable>
-            ) : null}
-            <Pressable
-              onPress={share}
-              disabled={!current}
-              className="min-w-[30%] flex-1 items-center rounded-xl bg-white py-3"
-            >
-              <Text className="font-semibold text-black">Share</Text>
-            </Pressable>
-            <Pressable
-              onPress={onClose}
-              className="min-w-[30%] flex-1 items-center rounded-xl bg-white/15 py-3"
-            >
-              <Text className="font-semibold text-white">
-                {postCapture ? 'Shoot again' : 'Done'}
-              </Text>
-            </Pressable>
-            {onDelete && current && !postCapture ? (
-              <Pressable
-                onPress={() => onDelete(current.id)}
-                className="items-center rounded-xl bg-red-500/20 px-4 py-3"
-              >
-                <Text className="font-semibold text-red-300">Remove</Text>
-              </Pressable>
-            ) : null}
+              {onDelete && current && !postCapture ? (
+                <Pressable
+                  onPress={() => onDelete(current.id)}
+                  disabled={rebaking}
+                  className={cn(
+                    'items-center rounded-xl bg-red-500/20 px-4 py-3',
+                    rebaking && 'opacity-40',
+                  )}
+                >
+                  <Text className="font-semibold text-red-300">Remove</Text>
+                </Pressable>
+              ) : null}
+            </View>
           </View>
         )}
       </View>

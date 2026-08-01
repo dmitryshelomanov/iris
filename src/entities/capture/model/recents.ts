@@ -84,10 +84,16 @@ function parseList(raw: string): RecentCapture[] {
   }
 }
 
-function deleteOwnedFiles(entry: RecentCapture) {
-  deleteAppDocumentFile(entry.rawUri);
+function deleteOwnedFiles(entry: RecentCapture, kept: RecentCapture[] = []) {
+  // Masters can be shared across re-bakes — only unlink when unused.
+  const rawStillUsed =
+    !!entry.rawUri && kept.some((r) => r.rawUri === entry.rawUri || r.uri === entry.rawUri);
+  if (entry.rawUri && !rawStillUsed) {
+    deleteAppDocumentFile(entry.rawUri);
+  }
   if (entry.uri !== entry.rawUri) {
-    deleteAppDocumentFile(entry.uri);
+    const uriStillUsed = kept.some((r) => r.uri === entry.uri || r.rawUri === entry.uri);
+    if (!uriStillUsed) deleteAppDocumentFile(entry.uri);
   }
 }
 
@@ -108,21 +114,20 @@ export async function pushRecent(entry: Omit<RecentCapture, 'id' | 'createdAt'> 
   const prev = await loadRecents();
   const evicted = prev.filter((r) => r.uri === next.uri || r.id === next.id);
   const libraryIdsToDelete: string[] = [];
+  const kept = prev.filter((r) => r.uri !== next.uri && r.id !== next.id);
   for (const old of evicted) {
-    // Don't delete files shared with the new entry.
-    if (old.rawUri && old.rawUri !== next.rawUri) deleteAppDocumentFile(old.rawUri);
-    if (old.uri !== next.uri && old.uri !== next.rawUri) deleteAppDocumentFile(old.uri);
+    // Don't delete files still referenced by kept entries or the new entry.
+    deleteOwnedFiles(old, [next, ...kept]);
     if (old.libraryAssetId && old.libraryAssetId !== next.libraryAssetId) {
       libraryIdsToDelete.push(old.libraryAssetId);
     }
   }
 
-  const kept = prev.filter((r) => r.uri !== next.uri && r.id !== next.id);
   const merged = [next, ...kept];
   const list = merged.slice(0, MAX_RECENTS);
   const overflow = merged.slice(MAX_RECENTS);
   for (const old of overflow) {
-    deleteOwnedFiles(old);
+    deleteOwnedFiles(old, list);
   }
   libraryIdsToDelete.push(...collectLibraryAssetIds(overflow));
   await deleteLibraryAssets(libraryIdsToDelete);
@@ -163,11 +168,11 @@ export async function removeRecents(ids: string[]) {
   const idSet = new Set(ids);
   const prev = await loadRecents();
   const removed = prev.filter((r) => idSet.has(r.id));
+  const list = prev.filter((r) => !idSet.has(r.id));
   await deleteLibraryAssets(collectLibraryAssetIds(removed));
   for (const entry of removed) {
-    deleteOwnedFiles(entry);
+    deleteOwnedFiles(entry, list);
   }
-  const list = prev.filter((r) => !idSet.has(r.id));
   await persistList(list);
   return list;
 }
@@ -199,10 +204,10 @@ export async function pruneRecentsMissingLibraryAssets(): Promise<RecentCapture[
   if (missingIds.length === 0) return prev;
 
   const missingSet = new Set(missingIds);
-  for (const entry of prev) {
-    if (missingSet.has(entry.id)) deleteOwnedFiles(entry);
-  }
   const list = prev.filter((r) => !missingSet.has(r.id));
+  for (const entry of prev) {
+    if (missingSet.has(entry.id)) deleteOwnedFiles(entry, list);
+  }
   await persistList(list);
   return list;
 }
@@ -219,11 +224,11 @@ export async function removeRecentsByLibraryAssetIds(
   const prev = await loadRecents();
   const removed = prev.filter((r) => r.libraryAssetId != null && libSet.has(r.libraryAssetId));
   if (removed.length === 0) return prev;
-  for (const entry of removed) {
-    deleteOwnedFiles(entry);
-  }
   const removedIds = new Set(removed.map((r) => r.id));
   const list = prev.filter((r) => !removedIds.has(r.id));
+  for (const entry of removed) {
+    deleteOwnedFiles(entry, list);
+  }
   await persistList(list);
   return list;
 }

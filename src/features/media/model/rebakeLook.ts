@@ -1,10 +1,9 @@
 import {
-  deleteLibraryAssets,
   fileUriExists,
   loadRecents,
+  pushRecent,
   savePhotoToLibrary,
   saveVideoToLibrary,
-  updateRecent,
   type RecentCapture,
 } from '@/entities/capture';
 import {
@@ -24,10 +23,8 @@ export type RebakeLookOptions = {
 };
 
 /**
- * Re-grade a recent from its durable master and update the recents index.
- * Photos: Skia bake → new Photos asset.
- * Videos: native bake → new Photos asset.
- * Keeps the same master for further A/B / re-bake.
+ * Re-grade a recent from its durable master and append a new gallery entry.
+ * Keeps the source capture + Photos asset; shares the same master for A/B / further re-bake.
  */
 export async function rebakeLook(
   recentId: string,
@@ -46,7 +43,6 @@ export async function rebakeLook(
 
   const look = getLookPreset(lookId);
   const bakeStrength = bakeStrengthForLook(look, options.lookStrength);
-  const previousLibraryAssetId = entry.libraryAssetId;
 
   if (entry.kind === 'photo') {
     const {
@@ -59,19 +55,19 @@ export async function rebakeLook(
       jpegQuality: options.jpegQuality,
     });
     const asset = await savePhotoToLibrary(baked.uri);
-    const nextList = await updateRecent(recentId, {
+    const nextList = await pushRecent({
       uri: baked.uri,
+      rawUri: entry.rawUri,
       libraryAssetId: asset.id,
+      kind: 'photo',
       lookId: resolvedLookId,
       lookStrength: resolvedStrength,
       histogram: baked.histogram,
+      meta: entry.meta,
     });
-    if (previousLibraryAssetId && previousLibraryAssetId !== asset.id) {
-      await deleteLibraryAssets([previousLibraryAssetId]);
-    }
-    const updated = nextList.find((r) => r.id === recentId);
-    if (!updated) throw new Error('Failed to update capture');
-    return updated;
+    const created = nextList[0];
+    if (!created || created.uri !== baked.uri) throw new Error('Failed to save re-bake');
+    return created;
   }
 
   if (entry.kind === 'video') {
@@ -85,18 +81,18 @@ export async function rebakeLook(
       throw new Error('Video look bake failed');
     }
     const asset = await saveVideoToLibrary(baked.path);
-    const nextList = await updateRecent(recentId, {
+    const nextList = await pushRecent({
       uri: baked.uri,
+      rawUri: entry.rawUri,
       libraryAssetId: asset.id,
+      kind: 'video',
       lookId,
       lookStrength: bakeStrength,
+      meta: entry.meta,
     });
-    if (previousLibraryAssetId && previousLibraryAssetId !== asset.id) {
-      await deleteLibraryAssets([previousLibraryAssetId]);
-    }
-    const updated = nextList.find((r) => r.id === recentId);
-    if (!updated) throw new Error('Failed to update capture');
-    return updated;
+    const created = nextList[0];
+    if (!created || created.uri !== baked.uri) throw new Error('Failed to save re-bake');
+    return created;
   }
 
   throw new Error('Unsupported capture kind');
