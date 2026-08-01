@@ -8,10 +8,12 @@ import {
   type RecentCapture,
 } from '@/entities/capture';
 import {
-  bakeLookIntoPhoto,
   bakeLookIntoVideo,
+  bakePhotoWithLook,
+  bakeStrengthForLook,
   getLookPreset,
-  isLookPresetId,
+  isAnimeMlLook,
+  resolveLookPresetId,
   type LookPresetId,
 } from '@/features/camera';
 
@@ -37,24 +39,30 @@ export async function rebakeLook(
   if (!entry.rawUri || !fileUriExists(entry.rawUri)) {
     throw new Error('Master missing — cannot re-bake');
   }
-  if (!isLookPresetId(options.lookId)) {
+  const lookId = resolveLookPresetId(options.lookId);
+  if (!lookId) {
     throw new Error('Unknown look');
   }
 
-  const look = getLookPreset(options.lookId);
+  const look = getLookPreset(lookId);
+  const bakeStrength = bakeStrengthForLook(look, options.lookStrength);
   const previousLibraryAssetId = entry.libraryAssetId;
 
   if (entry.kind === 'photo') {
-    const baked = await bakeLookIntoPhoto(entry.rawUri, look.overlay, {
-      strength: options.lookStrength,
-      jpegQuality: options.jpegQuality ?? 0.95,
-    });
+    const { baked, lookId: resolvedLookId, bakeStrength: resolvedStrength } = await bakePhotoWithLook(
+      entry.rawUri,
+      {
+        lookId,
+        lookStrength: options.lookStrength,
+        jpegQuality: options.jpegQuality,
+      },
+    );
     const asset = await savePhotoToLibrary(baked.uri);
     const nextList = await updateRecent(recentId, {
       uri: baked.uri,
       libraryAssetId: asset.id,
-      lookId: options.lookId,
-      lookStrength: options.lookStrength,
+      lookId: resolvedLookId,
+      lookStrength: resolvedStrength,
       histogram: baked.histogram,
     });
     if (previousLibraryAssetId && previousLibraryAssetId !== asset.id) {
@@ -66,18 +74,21 @@ export async function rebakeLook(
   }
 
   if (entry.kind === 'video') {
+    if (isAnimeMlLook(look)) {
+      throw new Error('Anime ML is photo only');
+    }
     const baked = await bakeLookIntoVideo(entry.rawUri, look.overlay, {
-      strength: options.lookStrength,
+      strength: bakeStrength,
     });
-    if (options.lookId !== 'none' && !baked.baked) {
+    if (lookId !== 'none' && !baked.baked) {
       throw new Error('Video look bake failed');
     }
     const asset = await saveVideoToLibrary(baked.path);
     const nextList = await updateRecent(recentId, {
       uri: baked.uri,
       libraryAssetId: asset.id,
-      lookId: options.lookId,
-      lookStrength: options.lookStrength,
+      lookId,
+      lookStrength: bakeStrength,
     });
     if (previousLibraryAssetId && previousLibraryAssetId !== asset.id) {
       await deleteLibraryAssets([previousLibraryAssetId]);

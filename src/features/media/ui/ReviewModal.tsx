@@ -1,15 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import {
-  ActivityIndicator,
-  FlatList,
-  Image,
-  Modal,
-  Pressable,
-  ScrollView,
-  Share,
-  View,
-  useWindowDimensions,
-} from 'react-native';
+import { FlatList, Image, Modal, Pressable, Share, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -18,11 +8,10 @@ import { Heart, X } from 'lucide-react-native';
 
 import { fileUriExists, type RecentCapture } from '@/entities/capture';
 import {
-  LOOK_PRESETS,
-  LookStrengthSlider,
   cancelBakeLookIntoVideo,
   getLookPreset,
-  isLookPresetId,
+  isAnimeMlLook,
+  resolveLookPresetId,
   type LookPresetId,
 } from '@/features/camera';
 import { Icon } from '@/shared/ui/icon';
@@ -32,6 +21,7 @@ import { cn } from '@/shared/lib/utils';
 
 import { rebakeLook } from '../model/rebakeLook';
 import { useRecents } from '../model/RecentsContext';
+import { LookBakeSheet } from './LookBakeSheet';
 
 type Props = {
   visible: boolean;
@@ -66,10 +56,11 @@ function MetadataStrip({ capture }: { capture: RecentCapture }) {
   if (meta?.shutter != null && meta.shutter > 0) parts.push(formatShutter(meta.shutter));
   if (meta?.ev != null) parts.push(formatEv(meta.ev));
 
-  if (capture.lookId && isLookPresetId(capture.lookId)) {
-    const look = getLookPreset(capture.lookId);
+  const lookId = resolveLookPresetId(capture.lookId);
+  if (lookId) {
+    const look = getLookPreset(lookId);
     const strength =
-      capture.lookStrength != null && capture.lookId !== 'none'
+      !isAnimeMlLook(look) && capture.lookStrength != null && lookId !== 'none'
         ? ` · ${Math.round(capture.lookStrength * 100)}%`
         : '';
     parts.push(`${look.label}${strength}`);
@@ -158,79 +149,6 @@ function VideoPlayer({ uri }: { uri: string }) {
   return <VideoView player={player} style={{ flex: 1 }} contentFit="contain" nativeControls />;
 }
 
-function LookRebakeSheet({
-  lookId,
-  strength,
-  busy,
-  error,
-  onLookChange,
-  onStrengthChange,
-  onApply,
-  onClose,
-}: {
-  lookId: LookPresetId;
-  strength: number;
-  busy: boolean;
-  error: string | null;
-  onLookChange: (id: LookPresetId) => void;
-  onStrengthChange: (v: number) => void;
-  onApply: () => void;
-  onClose: () => void;
-}) {
-  return (
-    <View className="border-t border-white/10 bg-zinc-950 px-3 pb-3 pt-2">
-      <View className="mb-2 flex-row items-center justify-between">
-        <Text className="text-sm font-semibold text-white">Re-bake look</Text>
-        <Pressable onPress={onClose} className="rounded-full bg-white/10 px-3 py-1">
-          <Text className="text-[11px] font-semibold text-white/80">Close</Text>
-        </Pressable>
-      </View>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ gap: 6, paddingBottom: 8 }}
-      >
-        {LOOK_PRESETS.map((look) => {
-          const active = look.id === lookId;
-          return (
-            <Pressable
-              key={look.id}
-              disabled={busy}
-              onPress={() => onLookChange(look.id)}
-              className={cn(
-                'rounded-full border px-2.5 py-1',
-                active ? 'border-amber-400 bg-amber-400/20' : 'border-white/15 bg-black/40',
-              )}
-            >
-              <Text
-                className={cn(
-                  'text-[11px] font-semibold',
-                  active ? 'text-amber-300' : 'text-white',
-                )}
-              >
-                {look.label}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </ScrollView>
-      <LookStrengthSlider value={strength} onChange={onStrengthChange} />
-      {error ? <Text className="mt-2 text-center text-[11px] text-red-300">{error}</Text> : null}
-      <Pressable
-        onPress={onApply}
-        disabled={busy}
-        className="mt-2 items-center rounded-xl bg-amber-400 py-3"
-      >
-        {busy ? (
-          <ActivityIndicator color="#000" />
-        ) : (
-          <Text className="font-semibold text-black">Apply look</Text>
-        )}
-      </Pressable>
-    </View>
-  );
-}
-
 export function ReviewModal({
   visible,
   recents,
@@ -285,11 +203,11 @@ export function ReviewModal({
   const canRebake = !!current?.rawUri && masterExists;
 
   useEffect(() => {
-    if (!current) return;
-    const id = isLookPresetId(current.lookId) ? current.lookId : 'none';
+    if (!current || rebaking) return;
+    const id = resolveLookPresetId(current.lookId) ?? 'none';
     setDraftLookId(id);
     setDraftStrength(current.lookStrength ?? 1);
-  }, [current?.id, current?.lookId, current?.lookStrength]);
+  }, [current?.id, current?.lookId, current?.lookStrength, rebaking]);
 
   const share = async () => {
     if (!current) return;
@@ -302,7 +220,10 @@ export function ReviewModal({
 
   const openLookSheet = () => {
     if (!canRebake || !current) return;
-    const id = isLookPresetId(current.lookId) ? current.lookId : 'none';
+    let id = resolveLookPresetId(current.lookId) ?? 'none';
+    if (current.kind === 'video' && isAnimeMlLook(id)) {
+      id = 'none';
+    }
     setDraftLookId(id);
     setDraftStrength(current.lookStrength ?? 1);
     setRebakeError(null);
@@ -310,18 +231,22 @@ export function ReviewModal({
   };
 
   const applyRebake = async () => {
-    if (!current || !canRebake) return;
+    if (!current || !canRebake || rebaking) return;
+    const recentId = current.id;
     setRebaking(true);
     setRebakeError(null);
     try {
-      await rebakeLook(current.id, {
+      await rebakeLook(recentId, {
         lookId: draftLookId,
         lookStrength: draftStrength,
       });
+      // Ignore stale completion if the user somehow changed selection mid-bake.
+      if (recentId !== (recents[index] ?? recents[0])?.id) return;
       await refresh();
       setCompare(false);
       setLookSheet(false);
     } catch (error) {
+      if (recentId !== (recents[index] ?? recents[0])?.id) return;
       setRebakeError(errorMessage(error, 'Re-bake failed'));
     } finally {
       setRebaking(false);
@@ -329,7 +254,14 @@ export function ReviewModal({
   };
 
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+    <Modal
+      visible={visible}
+      animationType="slide"
+      onRequestClose={() => {
+        if (rebaking) return;
+        onClose();
+      }}
+    >
       <View
         className="flex-1 bg-black"
         style={{ paddingTop: insets.top, paddingBottom: insets.bottom }}
@@ -337,7 +269,11 @@ export function ReviewModal({
         <View className="flex-row items-center justify-between px-4 py-2">
           <Pressable
             onPress={onClose}
-            className="h-9 w-9 items-center justify-center rounded-full bg-white/10"
+            disabled={rebaking}
+            className={cn(
+              'h-9 w-9 items-center justify-center rounded-full bg-white/10',
+              rebaking && 'opacity-40',
+            )}
           >
             <Icon as={X} size={18} className="text-white" />
           </Pressable>
@@ -402,7 +338,13 @@ export function ReviewModal({
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={{ paddingHorizontal: 12, gap: 8, paddingVertical: 10 }}
             renderItem={({ item, index: itemIndex }) => (
-              <Pressable onPress={() => setIndex(itemIndex)}>
+              <Pressable
+                disabled={rebaking}
+                onPress={() => {
+                  if (rebaking) return;
+                  setIndex(itemIndex);
+                }}
+              >
                 {item.kind === 'photo' ? (
                   <Image
                     source={{ uri: item.uri }}
@@ -430,15 +372,20 @@ export function ReviewModal({
         ) : null}
 
         {lookSheet && canRebake ? (
-          <LookRebakeSheet
+          <LookBakeSheet
+            title="Re-bake look"
             lookId={draftLookId}
             strength={draftStrength}
             busy={rebaking}
             error={rebakeError}
+            mediaKind={current.kind === 'video' ? 'video' : 'photo'}
             onLookChange={setDraftLookId}
             onStrengthChange={setDraftStrength}
             onApply={applyRebake}
-            onClose={() => setLookSheet(false)}
+            onClose={() => {
+              if (rebaking) return;
+              setLookSheet(false);
+            }}
           />
         ) : (
           <View className="flex-row flex-wrap gap-2 px-4 pb-3">

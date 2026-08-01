@@ -15,7 +15,7 @@
         "NSCameraUsageDescription": "Iris needs camera access to capture photos and video.",
         "NSMicrophoneUsageDescription": "Iris needs microphone access to record video with sound.",
         "NSPhotoLibraryAddUsageDescription": "Iris needs permission to save photos and videos to your library.",
-        "NSPhotoLibraryUsageDescription": "Iris needs Photos access to save captures and keep its gallery in sync when you delete them.",
+        "NSPhotoLibraryUsageDescription": "Iris needs Photos access to import photos for look baking, save captures, and keep its gallery in sync when you delete them.",
         "NSMotionUsageDescription": "Iris uses motion to show a camera level horizon."
       }
     },
@@ -59,9 +59,16 @@
       [
         "expo-media-library",
         {
-          "photosPermission": "Iris needs Photos access to save captures and keep its gallery in sync when you delete them.",
+          "photosPermission": "Iris needs Photos access to import photos for look baking, save captures, and keep its gallery in sync when you delete them.",
           "savePhotosPermission": "Iris needs permission to save photos and videos to your library.",
           "granularPermissions": ["photo", "video"]
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Iris needs Photos access to import photos for look baking.",
+          "microphonePermission": false
         }
       ],
       [

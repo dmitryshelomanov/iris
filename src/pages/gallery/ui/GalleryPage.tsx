@@ -3,6 +3,7 @@ import {
   Alert,
   FlatList,
   Image,
+  Modal,
   Pressable,
   ScrollView,
   useWindowDimensions,
@@ -13,10 +14,22 @@ import { useRouter } from 'expo-router';
 import { ArrowLeft, Check, Heart } from 'lucide-react-native';
 
 import { toggleFavoriteRecent } from '@/entities/capture';
-import { getLookPreset, isLookPresetId } from '@/features/camera';
-import { ReviewModal, useRecents } from '@/features/media';
+import {
+  getLookPreset,
+  resolveLookPresetId,
+  useCaptureSettings,
+  type LookPresetId,
+} from '@/features/camera';
+import {
+  LookBakeSheet,
+  ReviewModal,
+  bakeImportedPhoto,
+  pickLibraryPhoto,
+  useRecents,
+} from '@/features/media';
 import { Icon } from '@/shared/ui/icon';
 import { Text } from '@/shared/ui/text';
+import { errorMessage } from '@/shared/lib/errorMessage';
 import { cn } from '@/shared/lib/utils';
 
 type KindFilter = 'all' | 'photo' | 'video' | 'favorites';
@@ -26,17 +39,24 @@ export function GalleryPage() {
   const router = useRouter();
   const { width } = useWindowDimensions();
   const cell = (width - 8) / 3;
-  const { recents, dismiss, dismissMany, refresh } = useRecents();
+  const { settings } = useCaptureSettings();
+  const { recents, addCapture, dismiss, dismissMany, refresh } = useRecents();
   const [filter, setFilter] = useState<KindFilter>('all');
   const [lookFilter, setLookFilter] = useState<string | 'any'>('any');
   const [reviewId, setReviewId] = useState<string | null>(null);
   const [selecting, setSelecting] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
+  const [importUri, setImportUri] = useState<string | null>(null);
+  const [draftLookId, setDraftLookId] = useState<LookPresetId>('none');
+  const [draftStrength, setDraftStrength] = useState(1);
+  const [importBusy, setImportBusy] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
 
   const lookIds = useMemo(() => {
     const ids = new Set<string>();
     for (const r of recents) {
-      if (r.lookId) ids.add(r.lookId);
+      const id = resolveLookPresetId(r.lookId);
+      if (id) ids.add(id);
     }
     return Array.from(ids);
   }, [recents]);
@@ -57,7 +77,7 @@ export function GalleryPage() {
         break;
     }
     if (lookFilter !== 'any') {
-      list = list.filter((r) => r.lookId === lookFilter);
+      list = list.filter((r) => resolveLookPresetId(r.lookId) === lookFilter);
     }
     return list;
   }, [filter, lookFilter, recents]);
@@ -123,6 +143,48 @@ export function GalleryPage() {
     [refresh],
   );
 
+  const closeImportSheet = useCallback(() => {
+    if (importBusy) return;
+    setImportUri(null);
+    setImportError(null);
+  }, [importBusy]);
+
+  const startImport = useCallback(async () => {
+    try {
+      setImportError(null);
+      const uri = await pickLibraryPhoto();
+      if (!uri) return;
+      const lookId = resolveLookPresetId(settings.lookId) ?? 'none';
+      setDraftLookId(lookId);
+      setDraftStrength(settings.lookStrength);
+      setImportUri(uri);
+    } catch (error) {
+      Alert.alert('Import failed', errorMessage(error, 'Could not open Photos'));
+    }
+  }, [settings.lookId, settings.lookStrength]);
+
+  const applyImportBake = useCallback(async () => {
+    if (!importUri) return;
+    setImportBusy(true);
+    setImportError(null);
+    try {
+      const entry = await bakeImportedPhoto(importUri, {
+        lookId: draftLookId,
+        lookStrength: draftStrength,
+        jpegQuality: settings.jpegQuality,
+      });
+      await addCapture(entry);
+      setImportUri(null);
+      setFilter('all');
+      setLookFilter('any');
+      setReviewId(entry.id);
+    } catch (error) {
+      setImportError(errorMessage(error, 'Bake failed'));
+    } finally {
+      setImportBusy(false);
+    }
+  }, [addCapture, draftLookId, draftStrength, importUri, settings.jpegQuality]);
+
   return (
     <View className="flex-1 bg-black" style={{ paddingTop: insets.top }}>
       <View className="flex-row items-center justify-between px-3 py-2">
@@ -161,20 +223,32 @@ export function GalleryPage() {
             </Text>
           </Pressable>
         ) : (
-          <Pressable
-            onPress={() => enterSelecting()}
-            disabled={recents.length === 0}
-            className="min-w-9 px-1 py-2"
-          >
-            <Text
-              className={cn(
-                'text-sm font-semibold',
-                recents.length === 0 ? 'text-white/30' : 'text-amber-400',
-              )}
+          <View className="min-w-9 flex-row items-center justify-end gap-3 px-1">
+            <Pressable onPress={startImport} disabled={importBusy} className="py-2">
+              <Text
+                className={cn(
+                  'text-sm font-semibold',
+                  importBusy ? 'text-white/30' : 'text-amber-400',
+                )}
+              >
+                Import
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={() => enterSelecting()}
+              disabled={recents.length === 0}
+              className="py-2"
             >
-              Select
-            </Text>
-          </Pressable>
+              <Text
+                className={cn(
+                  'text-sm font-semibold',
+                  recents.length === 0 ? 'text-white/30' : 'text-amber-400',
+                )}
+              >
+                Select
+              </Text>
+            </Pressable>
+          </View>
         )}
       </View>
 
@@ -236,7 +310,7 @@ export function GalleryPage() {
             </Text>
           </Pressable>
           {lookIds.map((id) => {
-            const label = isLookPresetId(id) ? getLookPreset(id).label : id;
+            const label = resolveLookPresetId(id) ? getLookPreset(id).label : id;
             const active = lookFilter === id;
             return (
               <Pressable
@@ -272,14 +346,22 @@ export function GalleryPage() {
         }}
         ListEmptyComponent={
           <View className="items-center px-8 pt-20">
-            <Text className="text-center text-white/50">
-              Captures saved to the Iris album appear here.
+            <Text className="mb-4 text-center text-white/50">
+              Captures saved to the Iris album appear here. Import a photo from Photos to bake a
+              look.
             </Text>
+            <Pressable
+              onPress={startImport}
+              disabled={importBusy}
+              className="rounded-xl bg-amber-400 px-5 py-3"
+            >
+              <Text className="font-semibold text-black">Import photo</Text>
+            </Pressable>
           </View>
         }
         renderItem={({ item }) => {
           const lookLabel =
-            item.lookId && item.lookId !== 'none' && isLookPresetId(item.lookId)
+            item.lookId && item.lookId !== 'none' && resolveLookPresetId(item.lookId)
               ? getLookPreset(item.lookId).label
               : null;
           const isSelected = selected.has(item.id);
@@ -366,7 +448,7 @@ export function GalleryPage() {
 
       <ReviewModal
         visible={reviewId != null}
-        recents={filtered}
+        recents={recents}
         initialId={reviewId}
         onClose={() => setReviewId(null)}
         onDelete={async (id) => {
@@ -375,6 +457,41 @@ export function GalleryPage() {
         }}
         onToggleFavorite={toggleFavorite}
       />
+
+      <Modal visible={importUri != null} animationType="slide" onRequestClose={closeImportSheet}>
+        <View
+          className="flex-1 bg-black"
+          style={{ paddingTop: insets.top, paddingBottom: insets.bottom }}
+        >
+          <View className="flex-row items-center justify-between px-4 py-2">
+            <Pressable
+              onPress={closeImportSheet}
+              disabled={importBusy}
+              className="h-9 w-9 items-center justify-center rounded-full bg-white/10"
+            >
+              <Icon as={ArrowLeft} size={18} className="text-white" />
+            </Pressable>
+            <Text className="text-sm font-semibold text-white">Import photo</Text>
+            <View className="w-9" />
+          </View>
+          {importUri ? (
+            <Image source={{ uri: importUri }} className="flex-1" resizeMode="contain" />
+          ) : null}
+          <LookBakeSheet
+            title="Bake look"
+            lookId={draftLookId}
+            strength={draftStrength}
+            busy={importBusy}
+            error={importError}
+            mediaKind="photo"
+            applyLabel="Bake look"
+            onLookChange={setDraftLookId}
+            onStrengthChange={setDraftStrength}
+            onApply={applyImportBake}
+            onClose={closeImportSheet}
+          />
+        </View>
+      </Modal>
     </View>
   );
 }
