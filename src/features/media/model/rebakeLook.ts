@@ -49,14 +49,15 @@ export async function rebakeLook(
   const previousLibraryAssetId = entry.libraryAssetId;
 
   if (entry.kind === 'photo') {
-    const { baked, lookId: resolvedLookId, bakeStrength: resolvedStrength } = await bakePhotoWithLook(
-      entry.rawUri,
-      {
-        lookId,
-        lookStrength: options.lookStrength,
-        jpegQuality: options.jpegQuality,
-      },
-    );
+    const {
+      baked,
+      lookId: resolvedLookId,
+      bakeStrength: resolvedStrength,
+    } = await bakePhotoWithLook(entry.rawUri, {
+      lookId,
+      lookStrength: options.lookStrength,
+      jpegQuality: options.jpegQuality,
+    });
     const asset = await savePhotoToLibrary(baked.uri);
     const nextList = await updateRecent(recentId, {
       uri: baked.uri,
