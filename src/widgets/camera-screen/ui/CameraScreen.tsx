@@ -105,6 +105,7 @@ export function CameraScreen() {
   const session = useCameraSession({
     mode,
     settings,
+    hasMicrophonePermission: mic.hasPermission,
     setZoom,
     setStatus,
     patchSettings,

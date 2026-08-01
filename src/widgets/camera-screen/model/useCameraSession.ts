@@ -48,12 +48,21 @@ function pickPreferredLens(lenses: LensOption[]): LensOption {
 type Options = {
   mode: CaptureMode;
   settings: CaptureSettings;
+  /** Vision Camera throws if enableAudio while mic is not authorized. */
+  hasMicrophonePermission: boolean;
   setZoom: (next: number | ((prev: number) => number)) => void;
   setStatus: (status: string | null) => void;
   patchSettings: (patch: Partial<CaptureSettings>) => void;
 };
 
-export function useCameraSession({ mode, settings, setZoom, setStatus, patchSettings }: Options) {
+export function useCameraSession({
+  mode,
+  settings,
+  hasMicrophonePermission,
+  setZoom,
+  setStatus,
+  patchSettings,
+}: Options) {
   const cameraRef = useRef<CameraRef>(null);
   const devices = useCameraDevices();
   const lenses = useMemo(() => buildLensCatalog(devices), [devices]);
@@ -88,12 +97,12 @@ export function useCameraSession({ mode, settings, setZoom, setStatus, patchSett
         : settings.qualityPrioritization,
   });
 
-  // Keep audio output enabled from the start to avoid silent recordings
-  // caused by dynamic reconfiguration after mic permission changes.
-  // Recording itself is still gated by mic permission in useCameraCapture.
+  // Only enable audio after mic is authorized — iOS throws
+  // "Audio Permission not yet granted!" otherwise. After grant, the
+  // session reconfigures; recording is still gated in useCameraCapture.
   const videoOutput = useVideoOutput({
     targetResolution: videoResolutionForAspect(settings.aspect),
-    enableAudio: true,
+    enableAudio: hasMicrophonePermission,
     fileType: 'mp4',
   });
 
