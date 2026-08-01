@@ -4,12 +4,15 @@
 @source "../components/**/*.{js,ts,jsx,tsx,mdx}";
 
 @theme {
-  --color-ink: #14161c;
-  --color-muted: #6b7280;
-  --color-line: #e5e7eb;
-  --color-paper: #ffffff;
-  --color-wash: #f6f7f9;
-  --color-navy: #011b4a;
+  /* App camera UI: black + amber-400 (#FBBF24) */
+  --color-ink: #f4f4f5;
+  --color-muted: #a1a1aa;
+  --color-line: #27272a;
+  --color-paper: #0a0a0a;
+  --color-wash: #121214;
+  --color-amber: #fbbf24;
+  --color-amber-dim: #d97706;
+  --color-navy: #fbbf24;
   --font-sans: var(--font-outfit), ui-sans-serif, system-ui, sans-serif;
   --font-display: var(--font-fraunces), ui-serif, Georgia, serif;
 }
@@ -26,7 +29,8 @@ body {
 }
 
 ::selection {
-  background: color-mix(in srgb, var(--color-navy) 18%, white);
+  background: color-mix(in srgb, var(--color-amber) 40%, transparent);
+  color: #0a0a0a;
 }
 
 .scrollbar-none {
@@ -36,4 +40,18 @@ body {
 
 .scrollbar-none::-webkit-scrollbar {
   display: none;
+}
+
+/* Soft amber atmosphere — echoes the in-app accent without flat fills */
+.hero-atmosphere {
+  background:
+    radial-gradient(ellipse 80% 55% at 50% -10%, color-mix(in srgb, var(--color-amber) 22%, transparent), transparent 55%),
+    radial-gradient(ellipse 60% 40% at 85% 30%, color-mix(in srgb, var(--color-amber) 8%, transparent), transparent 50%),
+    var(--color-wash);
+}
+
+.surface-atmosphere {
+  background:
+    radial-gradient(ellipse 70% 50% at 20% 0%, color-mix(in srgb, var(--color-amber) 10%, transparent), transparent 55%),
+    var(--color-wash);
 }

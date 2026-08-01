@@ -9,7 +9,7 @@ export const features = [
   },
   {
     title: 'Looks baked in',
-    body: 'Film-inspired presets are applied natively into saved photos and video, not just overlays.',
+    body: 'Film-inspired presets bake into saved photos and video. Anime ML stylizes photos on-device — photo only, not for video.',
   },
   {
     title: 'Assist overlays',
@@ -59,4 +59,22 @@ export const bakeLooks = [
   { src: '/screenshots/looks/08.jpg', alt: 'Look bake example 8' },
   { src: '/screenshots/looks/09.jpg', alt: 'Look bake example 9' },
   { src: '/screenshots/looks/10.jpg', alt: 'Look bake example 10' },
+] as const;
+
+export const mlLooks = [
+  {
+    src: '/screenshots/looks/ml/01.jpg',
+    alt: 'Anime ML look bake — meal still life',
+    label: 'Anime ML',
+  },
+  {
+    src: '/screenshots/looks/ml/02.jpg',
+    alt: 'Anime ML look bake — markhor',
+    label: 'Anime ML',
+  },
+  {
+    src: '/screenshots/looks/ml/03.jpg',
+    alt: 'Anime ML look bake — giraffe',
+    label: 'Anime ML',
+  },
 ] as const;

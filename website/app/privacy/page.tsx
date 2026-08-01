@@ -14,12 +14,12 @@ export default function PrivacyPage() {
       <SiteHeader />
       <main className="mx-auto max-w-2xl px-5 py-12 sm:py-16">
         <p className="mb-8">
-          <Link href="/" className="text-sm text-muted no-underline transition hover:text-ink">
+          <Link href="/" className="text-sm text-muted no-underline transition hover:text-amber">
             ← Iris
           </Link>
         </p>
 
-        <h1 className="font-display text-4xl tracking-tight">Privacy Policy</h1>
+        <h1 className="font-display text-5xl tracking-tight sm:text-6xl">Privacy Policy</h1>
         <p className="mt-3 text-muted">Last updated: 2026-07-29</p>
 
         <div className="prose-iris mt-10 space-y-5 text-[1.05rem] leading-relaxed text-ink/90">
@@ -34,7 +34,7 @@ export default function PrivacyPage() {
             <li>
               Email:{' '}
               <a
-                className="text-navy underline-offset-2 hover:underline"
+                className="text-amber underline-offset-2 hover:underline"
                 href="mailto:dmitryshelomanov@mail.ru"
               >
                 dmitryshelomanov@mail.ru
@@ -43,7 +43,7 @@ export default function PrivacyPage() {
             <li>
               Website:{' '}
               <a
-                className="text-navy underline-offset-2 hover:underline"
+                className="text-amber underline-offset-2 hover:underline"
                 href="https://dmitryshelomanov.github.io/"
               >
                 dmitryshelomanov.github.io
@@ -52,7 +52,7 @@ export default function PrivacyPage() {
             <li>
               App site:{' '}
               <a
-                className="text-navy underline-offset-2 hover:underline"
+                className="text-amber underline-offset-2 hover:underline"
                 href="https://dmitryshelomanov.github.io/iris/"
               >
                 dmitryshelomanov.github.io/iris
@@ -61,7 +61,7 @@ export default function PrivacyPage() {
             <li>
               Repository:{' '}
               <a
-                className="text-navy underline-offset-2 hover:underline"
+                className="text-amber underline-offset-2 hover:underline"
                 href="https://github.com/dmitryshelomanov/iris"
               >
                 github.com/dmitryshelomanov/iris
@@ -130,7 +130,7 @@ export default function PrivacyPage() {
           <p>
             Questions about privacy:{' '}
             <a
-              className="text-navy underline-offset-2 hover:underline"
+              className="text-amber underline-offset-2 hover:underline"
               href="mailto:dmitryshelomanov@mail.ru"
             >
               dmitryshelomanov@mail.ru
