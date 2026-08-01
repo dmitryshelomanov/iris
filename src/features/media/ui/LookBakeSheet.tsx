@@ -36,7 +36,6 @@ export function LookBakeSheet({
   onApply,
   onClose,
 }: Props) {
-  const mlLocked = isAnimeMlLook(lookId);
   const videoBlocksMl = mediaKind === 'video';
   return (
     <View className="border-t border-white/10 bg-zinc-950 px-3 pb-3 pt-2">
@@ -85,10 +84,6 @@ export function LookBakeSheet({
       {videoBlocksMl ? (
         <Text className="mt-1 text-[10px] font-medium text-white/45">
           Anime ML is photo only — not available for video
-        </Text>
-      ) : mlLocked ? (
-        <Text className="mt-1 text-[10px] font-medium text-white/45">
-          Anime ML uses a fixed full-strength bake
         </Text>
       ) : (
         <LookStrengthSlider value={strength} onChange={onStrengthChange} disabled={busy} />

@@ -295,11 +295,11 @@ export const LOOK_PRESETS: LookPreset[] = [
       mono: 0.06,
       grain: 0.42,
       bloom: 0,
-      leak: 0,
+      leak: 0.1,
       stamp: 0,
-      smooth: 0,
-      posterize: 0,
-      edges: 0,
+      smooth: 0.2,
+      posterize: 0.15,
+      edges: 0.12,
     },
   },
   {
@@ -387,6 +387,9 @@ export const LOOK_PRESETS: LookPreset[] = [
       warmth: -0.05,
       color: '#1A1A1A',
       opacity: 0.06,
+      grain: 0.12,
+      leak: 0.12,
+      stamp: 0.55,
       smooth: 0.25,
       posterize: 0.8,
       edges: 0.85,
@@ -405,6 +408,8 @@ export const LOOK_PRESETS: LookPreset[] = [
       warmth: 0.18,
       color: '#FF4FD8',
       opacity: 0.1,
+      leak: 0.18,
+      stamp: 0.4,
       smooth: 0.15,
       posterize: 0.7,
       edges: 0.25,
@@ -490,14 +495,13 @@ export function getLookPreset(id: LookPresetId | string): LookPreset {
   return LOOK_PRESETS.find((p) => p.id === resolved) ?? LOOK_PRESETS[0];
 }
 
-/** Anime ML looks bake at fixed full strength — no user strength control. */
 export function isAnimeMlLook(look: LookPreset | LookPresetId | string): boolean {
   const preset = typeof look === 'object' ? look : getLookPreset(look);
   return preset.mlStyle != null;
 }
 
-export function bakeStrengthForLook(look: LookPreset, requestedStrength: number): number {
-  if (look.mlStyle) return 1;
+/** Resolve bake/preview strength for any look (including Anime ML blend). */
+export function bakeStrengthForLook(_look: LookPreset, requestedStrength: number): number {
   return requestedStrength;
 }
 
