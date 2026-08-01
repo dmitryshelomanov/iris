@@ -6,18 +6,26 @@ type CaptureLock = {
   endCapture: () => void;
 };
 
-export function useCaptureLock(isCapturingRef: RefObject<boolean>): CaptureLock {
+type Options = {
+  isCapturingRef: RefObject<boolean>;
+  /** Bridge for hooks that must subscribe to capturing (e.g. defer manual apply). */
+  onChange?: (capturing: boolean) => void;
+};
+
+export function useCaptureLock({ isCapturingRef, onChange }: Options): CaptureLock {
   const [isCapturing, setIsCapturing] = useState(false);
 
   const beginCapture = useCallback(() => {
     isCapturingRef.current = true;
     setIsCapturing(true);
-  }, [isCapturingRef]);
+    onChange?.(true);
+  }, [isCapturingRef, onChange]);
 
   const endCapture = useCallback(() => {
     isCapturingRef.current = false;
     setIsCapturing(false);
-  }, [isCapturingRef]);
+    onChange?.(false);
+  }, [isCapturingRef, onChange]);
 
   return {
     isCapturing,

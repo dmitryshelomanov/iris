@@ -84,8 +84,9 @@ export function CameraScreen() {
   const [lookScene, setLookScene] = useState<LookSceneId>('all');
   const [appState, setAppState] = useState<AppStateStatus>(AppState.currentState);
   const [previewSize, setPreviewSize] = useState({ width: 0, height: 0 });
-  // Sync gate for manual apply (ref) + UI disable (state via capture.isCapturing).
+  // Sync gate for manual apply: ref for onStarted, state so useCameraManual can defer.
   const isCapturingRef = useRef(false);
+  const [isCapturing, setIsCapturing] = useState(false);
   const cameraActive = isFocused && appState === 'active';
 
   const onPreviewLayout = useCallback((e: LayoutChangeEvent) => {
@@ -122,7 +123,7 @@ export function CameraScreen() {
     sessionReady: session.sessionReady,
     controllerReady: session.controllerReady,
     lookId: settings.lookId,
-    isCapturingRef,
+    isCapturing,
     setStatus,
     patchSettings,
   });
@@ -161,6 +162,7 @@ export function CameraScreen() {
     videoOutput: session.videoOutput,
     mic,
     isCapturingRef,
+    onCapturingChange: setIsCapturing,
     setStatus,
     addCapture,
     setPostCaptureOpen,
@@ -203,11 +205,12 @@ export function CameraScreen() {
 
   const onFlipOrUnlock = useCallback(async () => {
     if (preview.aeAfLocked) {
+      if (isCapturingRef.current || capture.isCapturing) return;
       await preview.unlockAeAf();
       return;
     }
     session.onFlip();
-  }, [preview.aeAfLocked, preview.unlockAeAf, session.onFlip]);
+  }, [capture.isCapturing, preview.aeAfLocked, preview.unlockAeAf, session.onFlip]);
 
   const onToggleFavorite = useCallback(
     async (id: string) => {
@@ -298,7 +301,11 @@ export function CameraScreen() {
               enableNativeTapToFocusGesture={false}
               enableNativeZoomGesture
               onConfigured={session.onSessionConfigured}
-              onStarted={() => session.setControllerReady((n) => n + 1)}
+              onStarted={() => {
+                // Android briefly restarts after takePicture — skip re-apply mid-bake.
+                if (isCapturingRef.current) return;
+                session.setControllerReady((n) => n + 1);
+              }}
               onError={(error) => setStatus(error.message)}
             />
           </GestureDetector>

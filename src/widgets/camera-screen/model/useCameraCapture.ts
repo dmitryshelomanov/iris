@@ -37,6 +37,8 @@ type Options = {
   mic: MicPermission;
   /** Sync gate for manual apply — mirrored into React state as isCapturing. */
   isCapturingRef: RefObject<boolean>;
+  /** Bridge so useCameraManual (declared above capture) can defer apply during bake. */
+  onCapturingChange?: (capturing: boolean) => void;
   setStatus: (status: string | null) => void;
   addCapture: (entry: Omit<RecentCapture, 'id' | 'createdAt'> & { id?: string }) => Promise<void>;
   setPostCaptureOpen: (open: boolean) => void;
@@ -55,6 +57,7 @@ export function useCameraCapture({
   videoOutput,
   mic,
   isCapturingRef,
+  onCapturingChange,
   setStatus,
   addCapture,
   setPostCaptureOpen,
@@ -75,6 +78,7 @@ export function useCameraCapture({
     manual,
     photoOutput,
     isCapturingRef,
+    onCapturingChange,
     setStatus,
     addCapture,
     setPostCaptureOpen,
@@ -87,6 +91,7 @@ export function useCameraCapture({
     videoOutput,
     mic,
     isCapturingRef,
+    onCapturingChange,
     setStatus,
     addCapture,
     setPostCaptureOpen,

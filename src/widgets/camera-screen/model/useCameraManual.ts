@@ -5,6 +5,7 @@ import {
   applyLookToManual,
   applyManualToController,
   DEFAULT_MANUAL_STATE,
+  isCameraControlCanceled,
   seedManualFromController,
   type LookPresetId,
   type ManualControlsState,
@@ -17,7 +18,8 @@ type Options = {
   sessionReady: boolean;
   controllerReady: number;
   lookId: LookPresetId;
-  isCapturingRef: RefObject<boolean>;
+  /** When true, skip controller apply; re-run after capture/bake ends. */
+  isCapturing: boolean;
   setStatus: (status: string | null) => void;
   patchSettings: (patch: { lookId: LookPresetId }) => void;
 };
@@ -28,7 +30,7 @@ export function useCameraManual({
   sessionReady,
   controllerReady,
   lookId,
-  isCapturingRef,
+  isCapturing,
   setStatus,
   patchSettings,
 }: Options) {
@@ -36,9 +38,9 @@ export function useCameraManual({
   const [showManual, setShowManual] = useState(false);
 
   useEffect(() => {
-    if (isCapturingRef.current) return;
+    if (isCapturing || !sessionReady) return;
     const controller = cameraRef.current?.controller;
-    if (!controller || !device || !sessionReady) return;
+    if (!controller || !device) return;
 
     let cancelled = false;
     (async () => {
@@ -47,16 +49,24 @@ export function useCameraManual({
           lockWhiteBalance: lookId !== 'none' || manual.enabled,
         });
       } catch (error) {
-        if (!cancelled) {
-          setStatus(errorMessage(error, 'Control failed'));
-        }
+        if (cancelled || isCameraControlCanceled(error)) return;
+        setStatus(errorMessage(error, 'Control failed'));
       }
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [cameraRef, controllerReady, device, isCapturingRef, lookId, manual, sessionReady, setStatus]);
+  }, [
+    cameraRef,
+    controllerReady,
+    device,
+    isCapturing,
+    lookId,
+    manual,
+    sessionReady,
+    setStatus,
+  ]);
 
   const onManualChange = useCallback(
     (next: ManualControlsState) => {

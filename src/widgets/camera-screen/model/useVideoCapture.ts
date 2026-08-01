@@ -34,6 +34,7 @@ type Options = {
   videoOutput: VideoOutput;
   mic: MicPermission;
   isCapturingRef: RefObject<boolean>;
+  onCapturingChange?: (capturing: boolean) => void;
   setStatus: (status: string | null) => void;
   addCapture: (entry: Omit<RecentCapture, 'id' | 'createdAt'> & { id?: string }) => Promise<void>;
   setPostCaptureOpen: (open: boolean) => void;
@@ -49,6 +50,7 @@ export function useVideoCapture({
   videoOutput,
   mic,
   isCapturingRef,
+  onCapturingChange,
   setStatus,
   addCapture,
   setPostCaptureOpen,
@@ -58,7 +60,10 @@ export function useVideoCapture({
   const [bakePhase, setBakePhase] = useState<BakePhase | null>(null);
   const recorderRef = useRef<Recorder | null>(null);
   const stoppingRef = useRef(false);
-  const { isCapturing, beginCapture, endCapture } = useCaptureLock(isCapturingRef);
+  const { isCapturing, beginCapture, endCapture } = useCaptureLock({
+    isCapturingRef,
+    onChange: onCapturingChange,
+  });
   const isRecording = phase === 'recording';
 
   const finishRecording = useCallback(

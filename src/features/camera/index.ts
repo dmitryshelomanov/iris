@@ -31,7 +31,11 @@ export {
   bakeStrengthForLook,
 } from './model/presets';
 export type { LookPreset, LookOverlay as LookOverlayConfig } from './model/presets';
-export { applyManualToController, seedManualFromController } from './model/applyManual';
+export {
+  applyManualToController,
+  isCameraControlCanceled,
+  seedManualFromController,
+} from './model/applyManual';
 export {
   defaultPresetName,
   deleteCapturePreset,

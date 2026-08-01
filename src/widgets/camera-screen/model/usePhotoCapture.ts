@@ -31,6 +31,7 @@ type Options = {
   manual: ManualControlsState;
   photoOutput: PhotoOutput;
   isCapturingRef: RefObject<boolean>;
+  onCapturingChange?: (capturing: boolean) => void;
   setStatus: (status: string | null) => void;
   addCapture: (entry: Omit<RecentCapture, 'id' | 'createdAt'> & { id?: string }) => Promise<void>;
   setPostCaptureOpen: (open: boolean) => void;
@@ -48,11 +49,15 @@ export function usePhotoCapture({
   manual,
   photoOutput,
   isCapturingRef,
+  onCapturingChange,
   setStatus,
   addCapture,
   setPostCaptureOpen,
 }: Options) {
-  const { isCapturing, beginCapture, endCapture } = useCaptureLock(isCapturingRef);
+  const { isCapturing, beginCapture, endCapture } = useCaptureLock({
+    isCapturingRef,
+    onChange: onCapturingChange,
+  });
   const [bakePhase, setBakePhase] = useState<BakePhase | null>(null);
 
   const takePhotoOnce = useCallback(async () => {

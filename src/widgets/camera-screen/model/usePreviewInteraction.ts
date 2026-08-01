@@ -3,7 +3,11 @@ import { Gesture } from 'react-native-gesture-handler';
 import { runOnJS } from 'react-native-reanimated';
 import type { CameraRef } from 'react-native-vision-camera';
 
-import { hapticFocusLock, type FocusReticleState } from '@/features/camera';
+import {
+  hapticFocusLock,
+  isCameraControlCanceled,
+  type FocusReticleState,
+} from '@/features/camera';
 import { errorMessage } from '@/shared/lib/errorMessage';
 
 import { canPreviewInteract } from './captureGuards';
@@ -99,8 +103,9 @@ export function usePreviewInteraction({
     try {
       await cameraRef.current?.resetFocus();
       setStatus('AE/AF unlocked');
-    } catch {
-      // ignore
+    } catch (error) {
+      // Android CameraX cancels when session is briefly inactive after capture.
+      if (isCameraControlCanceled(error)) return;
     }
   }, [aeAfLocked, cameraRef, setStatus]);
 

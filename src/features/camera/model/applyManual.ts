@@ -2,6 +2,21 @@ import type { CameraController } from 'react-native-vision-camera';
 
 import { clamp, type ManualControlsState } from './types';
 
+/** Android CameraX cancels focus ops when the session is briefly inactive (e.g. after takePicture). */
+export function isCameraControlCanceled(error: unknown): boolean {
+  const msg = error instanceof Error ? error.message : String(error);
+  return /not active|canceled|cancelled/i.test(msg);
+}
+
+async function safeResetFocus(controller: CameraController): Promise<void> {
+  try {
+    await controller.resetFocus();
+  } catch (error) {
+    if (isCameraControlCanceled(error)) return;
+    throw error;
+  }
+}
+
 /**
  * Push Pro / look dials into VisionCamera's CameraController.
  * Manual on → lock ISO/shutter/focus/WB. Manual off → reset 3A, keep EV (+ optional WB for looks).
@@ -43,7 +58,7 @@ export async function applyManualToController(
   }
 
   // Auto 3A — resetFocus unlocks AE/AF/AWB (including look Kelvin locks).
-  await controller.resetFocus();
+  await safeResetFocus(controller);
 
   if (device.supportsExposureBias) {
     await controller.setExposureBias(
