@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import {
+  applyLookToManual,
   deleteCapturePreset,
   ensureScenePresets,
   isAnimeMlLook,
   renameCapturePreset,
+  resolveLookPresetId,
   saveCapturePreset,
   type CameraPreset,
   type CaptureMode,
@@ -67,7 +69,8 @@ export function useCameraPresets({
 
       setSettings(nextSettings);
       setMode(nextMode);
-      onManualChange(preset.manual);
+      const lookId = resolveLookPresetId(nextSettings.lookId) ?? 'none';
+      onManualChange(applyLookToManual(preset.manual, lookId));
       setZoom(preset.zoom);
 
       const nextLens = preset.activeLensId

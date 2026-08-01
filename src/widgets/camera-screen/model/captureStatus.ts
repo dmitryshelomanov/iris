@@ -5,7 +5,7 @@ export type BakePhase =
   | { id: 'capturing' }
   | { id: 'burst'; index: number; total: number }
   | { id: 'applyingLook' }
-  | { id: 'applyingAnime' }
+  | { id: 'applyingAnime'; index?: number; total?: number }
   | { id: 'saving' };
 
 export function bakePhaseLabel(phase: BakePhase): string {
@@ -17,7 +17,9 @@ export function bakePhaseLabel(phase: BakePhase): string {
     case 'applyingLook':
       return 'Applying look…';
     case 'applyingAnime':
-      return 'Anime stylizing…';
+      return phase.index != null && phase.total != null
+        ? `Anime stylizing ${phase.index}/${phase.total}…`
+        : 'Anime stylizing…';
     case 'saving':
       return 'Saving…';
   }

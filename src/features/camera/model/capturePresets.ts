@@ -1,16 +1,18 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { resolveLookPresetId } from './presets';
+import { applyLookToManual, resolveLookPresetId } from './presets';
 import {
   DEFAULT_CAPTURE_SETTINGS,
   DEFAULT_MANUAL_STATE,
   type CaptureMode,
   type CaptureSettings,
   type LensId,
+  type LookPresetId,
   type ManualControlsState,
 } from './types';
 
 const PRESETS_KEY = 'iris.capturePresets.v1';
+const SCENE_LOOKS_MIGRATION_KEY = 'iris.sceneLooks.v2';
 const MAX_PRESETS = 24;
 
 export type CameraPreset = {
@@ -28,6 +30,16 @@ export type CameraPreset = {
 type CameraPresetDraft = Omit<CameraPreset, 'id' | 'createdAt' | 'updatedAt'> & {
   id?: string;
   createdAt?: number;
+};
+
+/** Recommended look for Street / Portrait / Night chips (+ optional EV lift after look WB). */
+const SCENE_LOOK_DEFAULTS: Record<
+  string,
+  { lookId: LookPresetId; legacyLookId: LookPresetId; evOverride?: number }
+> = {
+  street: { lookId: 'tx', legacyLookId: 'fs' },
+  portrait: { lookId: 'kp', legacyLookId: 'kp', evOverride: 0.3 },
+  night: { lookId: 'tc', legacyLookId: 'tc', evOverride: 0.5 },
 };
 
 function normalizeName(name: string) {
@@ -75,6 +87,35 @@ function buildPreset(draft: CameraPresetDraft): CameraPreset {
     manual: draft.manual,
     zoom: draft.zoom,
     activeLensId: draft.activeLensId ?? null,
+  });
+}
+
+function sceneManual(lookId: LookPresetId, evOverride?: number): ManualControlsState {
+  const base = applyLookToManual({ ...DEFAULT_MANUAL_STATE }, lookId);
+  if (evOverride == null) return base;
+  return { ...base, ev: evOverride };
+}
+
+function buildSceneSeed(
+  name: 'Street' | 'Portrait' | 'Night',
+  now: number,
+  extras: Partial<CaptureSettings> = {},
+): CameraPreset {
+  const key = name.toLowerCase();
+  const def = SCENE_LOOK_DEFAULTS[key];
+  return buildPreset({
+    id: `seed-${key}-${now}`,
+    name,
+    mode: 'photo',
+    zoom: 1,
+    activeLensId: null,
+    manual: sceneManual(def.lookId, def.evOverride),
+    settings: {
+      ...DEFAULT_CAPTURE_SETTINGS,
+      lookId: def.lookId,
+      lookStrength: 0.75,
+      ...extras,
+    },
   });
 }
 
@@ -131,58 +172,63 @@ export async function deleteCapturePreset(id: string) {
   return writeCapturePresets(prev.filter((item) => item.id !== id));
 }
 
+/**
+ * One-time: Street fs→tx; refresh WB/EV on Street/Portrait/Night only when look
+ * is still the original seed look (skip user-customized looks).
+ */
+async function migrateSceneLooks(list: CameraPreset[]): Promise<CameraPreset[]> {
+  try {
+    const done = await AsyncStorage.getItem(SCENE_LOOKS_MIGRATION_KEY);
+    if (done === '1') return list;
+  } catch {
+    // continue and attempt migration
+  }
+
+  let changed = false;
+  const next = list.map((preset) => {
+    const def = SCENE_LOOK_DEFAULTS[preset.name.toLowerCase()];
+    if (!def) return preset;
+    const currentLook = resolveLookPresetId(preset.settings.lookId);
+    if (currentLook !== def.legacyLookId) return preset;
+
+    changed = true;
+    return {
+      ...preset,
+      updatedAt: Date.now(),
+      settings: { ...preset.settings, lookId: def.lookId },
+      manual: sceneManual(def.lookId, def.evOverride),
+    };
+  });
+
+  try {
+    await AsyncStorage.setItem(SCENE_LOOKS_MIGRATION_KEY, '1');
+  } catch {
+    // best-effort flag
+  }
+
+  if (!changed) return list;
+  return writeCapturePresets(next.sort((a, b) => b.updatedAt - a.updatedAt));
+}
+
 /** Seed Street / Portrait / Night quick chips once if the library is empty. */
 export async function ensureScenePresets(): Promise<CameraPreset[]> {
   const existing = await loadCapturePresets();
-  if (existing.length > 0) return existing;
+  if (existing.length > 0) {
+    return migrateSceneLooks(existing);
+  }
 
   const now = Date.now();
   const seeds: CameraPreset[] = [
-    buildPreset({
-      id: `seed-street-${now}`,
-      name: 'Street',
-      mode: 'photo',
-      zoom: 1,
-      activeLensId: null,
-      manual: { ...DEFAULT_MANUAL_STATE },
-      settings: {
-        ...DEFAULT_CAPTURE_SETTINGS,
-        lookId: 'fs',
-        lookStrength: 0.75,
-        aspect: '4:3',
-        showGrid: true,
-      },
-    }),
-    buildPreset({
-      id: `seed-portrait-${now}`,
-      name: 'Portrait',
-      mode: 'photo',
-      zoom: 1,
-      activeLensId: null,
-      manual: { ...DEFAULT_MANUAL_STATE, ev: 0.3 },
-      settings: {
-        ...DEFAULT_CAPTURE_SETTINGS,
-        lookId: 'kp',
-        lookStrength: 0.75,
-        aspect: '4:3',
-      },
-    }),
-    buildPreset({
-      id: `seed-night-${now}`,
-      name: 'Night',
-      mode: 'photo',
-      zoom: 1,
-      activeLensId: null,
-      manual: { ...DEFAULT_MANUAL_STATE, ev: 0.5 },
-      settings: {
-        ...DEFAULT_CAPTURE_SETTINGS,
-        lookId: 'tc',
-        lookStrength: 0.75,
-        lowLightBoost: true,
-        aspect: '16:9',
-      },
-    }),
+    buildSceneSeed('Street', now, { aspect: '4:3', showGrid: true }),
+    buildSceneSeed('Portrait', now, { aspect: '4:3' }),
+    buildSceneSeed('Night', now, { aspect: '16:9', lowLightBoost: true }),
   ];
+
+  try {
+    await AsyncStorage.setItem(SCENE_LOOKS_MIGRATION_KEY, '1');
+  } catch {
+    // best-effort
+  }
 
   return writeCapturePresets(seeds);
 }

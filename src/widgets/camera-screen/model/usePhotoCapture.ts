@@ -19,6 +19,13 @@ import { useCaptureLock } from './useCaptureLock';
 
 type PhotoOutput = ReturnType<typeof usePhotoOutput>;
 
+type CaptureMeta = NonNullable<RecentCapture['meta']>;
+
+type CapturedMaster = {
+  masterUri: string;
+  meta: CaptureMeta;
+};
+
 type Options = {
   cameraRef: RefObject<CameraRef | null>;
   mode: CaptureMode;
@@ -60,7 +67,7 @@ export function usePhotoCapture({
   });
   const [bakePhase, setBakePhase] = useState<BakePhase | null>(null);
 
-  const takePhotoOnce = useCallback(async () => {
+  const captureMaster = useCallback(async (): Promise<CapturedMaster> => {
     const flashMode =
       activeLens?.position === 'front' || !capabilities.hasFlash ? 'off' : settings.flashMode;
 
@@ -72,17 +79,7 @@ export function usePhotoCapture({
       {},
     );
 
-    setBakePhase(look.mlStyle ? { id: 'applyingAnime' } : { id: 'applyingLook' });
-
     const masterUri = await persistPhotoMaster(filePath);
-    const { baked, bakeStrength } = await bakePhotoWithLook(masterUri, {
-      lookId: settings.lookId,
-      lookStrength: settings.lookStrength,
-      jpegQuality: settings.jpegQuality,
-    });
-
-    setBakePhase({ id: 'saving' });
-    const asset = await savePhotoToLibrary(baked.uri);
 
     const controller = cameraRef.current?.controller;
     const iso =
@@ -93,14 +90,8 @@ export function usePhotoCapture({
         : controller.exposureDuration;
     const ev = manual.enabled ? manual.ev : (controller?.exposureBias ?? manual.ev);
 
-    await addCapture({
-      uri: baked.uri,
-      rawUri: masterUri,
-      libraryAssetId: asset.id,
-      kind: 'photo',
-      lookId: settings.lookId,
-      lookStrength: bakeStrength,
-      histogram: baked.histogram,
+    return {
+      masterUri,
       meta: {
         lensLabel: activeLens?.label,
         focalLengthMm: activeLens?.focalLengthMm ?? wideFocalMm,
@@ -109,17 +100,13 @@ export function usePhotoCapture({
         ev,
         wbKelvin: manual.wbKelvin,
       },
-    });
-
-    return baked;
+    };
   }, [
     activeLens?.focalLengthMm,
     activeLens?.label,
     activeLens?.position,
-    addCapture,
     cameraRef,
     capabilities.hasFlash,
-    look.mlStyle,
     manual.enabled,
     manual.ev,
     manual.iso,
@@ -127,12 +114,46 @@ export function usePhotoCapture({
     manual.wbKelvin,
     photoOutput,
     settings.flashMode,
-    settings.jpegQuality,
-    settings.lookId,
-    settings.lookStrength,
     settings.shutterSound,
     wideFocalMm,
   ]);
+
+  const bakeAndSaveMaster = useCallback(
+    async (captured: CapturedMaster, phase?: BakePhase) => {
+      setBakePhase(
+        phase ?? (look.mlStyle ? { id: 'applyingAnime' } : { id: 'applyingLook' }),
+      );
+
+      const { baked, bakeStrength } = await bakePhotoWithLook(captured.masterUri, {
+        lookId: settings.lookId,
+        lookStrength: settings.lookStrength,
+        jpegQuality: settings.jpegQuality,
+      });
+
+      setBakePhase({ id: 'saving' });
+      const asset = await savePhotoToLibrary(baked.uri);
+
+      await addCapture({
+        uri: baked.uri,
+        rawUri: captured.masterUri,
+        libraryAssetId: asset.id,
+        kind: 'photo',
+        lookId: settings.lookId,
+        lookStrength: bakeStrength,
+        histogram: baked.histogram,
+        meta: captured.meta,
+      });
+
+      return baked;
+    },
+    [
+      addCapture,
+      look.mlStyle,
+      settings.jpegQuality,
+      settings.lookId,
+      settings.lookStrength,
+    ],
+  );
 
   const takePhoto = useCallback(async () => {
     if (isCapturingRef.current || isCapturing) return;
@@ -142,30 +163,57 @@ export function usePhotoCapture({
     }
 
     beginCapture();
-    // Anime ML is too heavy for burst — force a single frame.
-    const burst = look.mlStyle ? 1 : mode === 'photo' ? settings.burstCount : 1;
+    const burst = mode === 'photo' ? settings.burstCount : 1;
+    const isMlBurst = Boolean(look.mlStyle) && burst > 1;
     setBakePhase(burst > 1 ? { id: 'burst', index: 1, total: burst } : { id: 'capturing' });
     setStatus(null);
     hapticShutter();
 
+    let saved = 0;
     try {
-      for (let i = 0; i < burst; i += 1) {
-        if (burst > 1) setBakePhase({ id: 'burst', index: i + 1, total: burst });
-        await takePhotoOnce();
+      if (isMlBurst) {
+        const masters: CapturedMaster[] = [];
+        for (let i = 0; i < burst; i += 1) {
+          setBakePhase({ id: 'burst', index: i + 1, total: burst });
+          masters.push(await captureMaster());
+        }
+        for (let i = 0; i < masters.length; i += 1) {
+          const animePhase: BakePhase = {
+            id: 'applyingAnime',
+            index: i + 1,
+            total: masters.length,
+          };
+          await bakeAndSaveMaster(masters[i], animePhase);
+          saved += 1;
+        }
+      } else {
+        for (let i = 0; i < burst; i += 1) {
+          if (burst > 1) setBakePhase({ id: 'burst', index: i + 1, total: burst });
+          const master = await captureMaster();
+          await bakeAndSaveMaster(master);
+          saved += 1;
+        }
       }
       setBakePhase(null);
-      setStatus(captureStatus.savedPhoto(burst, look));
+      setStatus(captureStatus.savedPhoto(saved, look));
       setPostCaptureOpen(true);
     } catch (error) {
       const message = errorMessage(error, 'Capture failed');
       console.warn('[iris] capture failed', error);
       setBakePhase(null);
-      setStatus(message);
+      if (saved > 0) {
+        setStatus(`${message} · saved ${saved}/${burst}`);
+        setPostCaptureOpen(true);
+      } else {
+        setStatus(message);
+      }
     } finally {
       endCapture();
     }
   }, [
+    bakeAndSaveMaster,
     beginCapture,
+    captureMaster,
     endCapture,
     isCapturing,
     isCapturingRef,
@@ -175,7 +223,6 @@ export function usePhotoCapture({
     setPostCaptureOpen,
     setStatus,
     settings.burstCount,
-    takePhotoOnce,
   ]);
 
   return {
