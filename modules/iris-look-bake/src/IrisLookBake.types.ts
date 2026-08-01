@@ -19,3 +19,17 @@ export type BakeLookVideoNativeResult = {
   uri: string;
   baked?: boolean;
 };
+
+/** On-device AnimeGANv3 style id. */
+export type AnimeMlStyle = 'animegan-v3-shinkai' | 'animegan-v3-hayao';
+
+export type StylizePhotoNativeOptions = {
+  style: AnimeMlStyle;
+  /** Blend toward stylized result; 0 = original, 1 = full anime. */
+  strength: number;
+};
+
+export type StylizePhotoNativeResult = {
+  path: string;
+  uri: string;
+};

@@ -21,9 +21,16 @@ struct BakeLookVideoOptions: Record {
   @Field var edges: Double = 0
 }
 
+struct StylizePhotoOptions: Record {
+  @Field var style: String = "animegan-v3-shinkai"
+  @Field var strength: Double = 1
+}
+
 public class IrisLookBakeModule: Module {
   private static let bakeLock = NSLock()
   private static var bakeInFlight = false
+  private static let stylizeLock = NSLock()
+  private static var stylizeInFlight = false
   private static weak var activeExporter: AVAssetExportSession?
   private static let sharedCIContext: CIContext = {
     if let device = MTLCreateSystemDefaultDevice() {
@@ -54,6 +61,30 @@ public class IrisLookBakeModule: Module {
       default: soundID = 1519 // peek — light tick (Camera.app level snap)
       }
       AudioServicesPlaySystemSound(soundID)
+    }
+
+    AsyncFunction("stylizePhoto") { (inputPath: String, options: StylizePhotoOptions) -> [String: Any] in
+      Self.stylizeLock.lock()
+      if Self.stylizeInFlight {
+        Self.stylizeLock.unlock()
+        throw NSError(
+          domain: "IrisLookBake",
+          code: 7,
+          userInfo: [NSLocalizedDescriptionKey: "Anime stylize already in progress"]
+        )
+      }
+      Self.stylizeInFlight = true
+      Self.stylizeLock.unlock()
+      defer {
+        Self.stylizeLock.lock()
+        Self.stylizeInFlight = false
+        Self.stylizeLock.unlock()
+      }
+      return try AnimeStylize.stylizePhoto(
+        inputPath: inputPath,
+        style: options.style,
+        strength: options.strength
+      )
     }
   }
 

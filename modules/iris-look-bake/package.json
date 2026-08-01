@@ -1,0 +1,13 @@
+{
+  "name": "iris-look-bake",
+  "version": "1.0.0",
+  "main": "index.ts",
+  "scripts": {
+    "fetch-models": "python3 scripts/fetch_animegan_models.py"
+  },
+  "peerDependencies": {
+    "expo": "*",
+    "react": "*",
+    "react-native": "*"
+  }
+}

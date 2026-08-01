@@ -1,6 +1,11 @@
 import { NativeModule, requireNativeModule } from 'expo';
 
-import type { BakeLookVideoNativeOptions, BakeLookVideoNativeResult } from './IrisLookBake.types';
+import type {
+  BakeLookVideoNativeOptions,
+  BakeLookVideoNativeResult,
+  StylizePhotoNativeOptions,
+  StylizePhotoNativeResult,
+} from './IrisLookBake.types';
 
 declare class IrisLookBakeModule extends NativeModule<{}> {
   bakeLookIntoVideo(
@@ -11,6 +16,11 @@ declare class IrisLookBakeModule extends NativeModule<{}> {
   cancelBakeLookIntoVideo(): void;
   /** iOS AudioServices peek/pop/nope — works during an active camera session. */
   playSystemHaptic(kind: 'peek' | 'pop' | 'nope'): void;
+  /** On-device AnimeGANv3 photo stylization. */
+  stylizePhoto(
+    inputPath: string,
+    options: StylizePhotoNativeOptions,
+  ): Promise<StylizePhotoNativeResult>;
 }
 
 export default requireNativeModule<IrisLookBakeModule>('IrisLookBake');

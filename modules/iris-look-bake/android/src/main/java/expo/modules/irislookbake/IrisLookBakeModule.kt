@@ -75,8 +75,17 @@ class BakeLookVideoOptions : Record {
   var edges: Double = 0.0
 }
 
+class StylizePhotoOptions : Record {
+  @Field
+  var style: String = "animegan-v3-shinkai"
+
+  @Field
+  var strength: Double = 1.0
+}
+
 class IrisLookBakeModule : Module() {
   private val bakeInFlight = AtomicBoolean(false)
+  private val stylizeInFlight = AtomicBoolean(false)
   @Volatile
   private var bakeCancelled = false
 
@@ -102,6 +111,22 @@ class IrisLookBakeModule : Module() {
 
     // iOS-only path; Android uses expo-haptics from JS.
     Function("playSystemHaptic") { _: String -> }
+
+    AsyncFunction("stylizePhoto") { inputPath: String, options: StylizePhotoOptions ->
+      if (!stylizeInFlight.compareAndSet(false, true)) {
+        throw IllegalStateException("Anime stylize already in progress")
+      }
+      try {
+        AnimeStylize.stylizePhoto(
+          appContext.reactContext,
+          inputPath,
+          options.style,
+          options.strength,
+        )
+      } finally {
+        stylizeInFlight.set(false)
+      }
+    }
   }
 
   private fun needsBake(options: BakeLookVideoOptions): Boolean {
