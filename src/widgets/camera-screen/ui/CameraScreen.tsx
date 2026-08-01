@@ -39,11 +39,14 @@ import {
   ScenePresetChips,
   StabilizationCrosshairOverlay,
   aspectFrameLayout,
+  bakeStrengthForLook,
   clamp,
   defaultPresetName,
+  isAnimeMlLook,
   useCaptureSettings,
   useVolumeShutter,
   type CaptureMode,
+  type LookPresetId,
   type LookSceneId,
 } from '@/features/camera';
 import { LastShotButton, ReviewModal, useRecents } from '@/features/media';
@@ -59,6 +62,7 @@ import {
   useLiveOverlays,
   usePreviewInteraction,
 } from '../model';
+import { captureStatus } from '../model/captureStatus';
 import { CameraPermissionView } from './CameraPermissionView';
 import { CameraUnavailableView } from './CameraUnavailableView';
 
@@ -121,6 +125,27 @@ export function CameraScreen() {
     setStatus,
     patchSettings,
   });
+
+  const onModeChange = useCallback(
+    (next: CaptureMode) => {
+      if (next === 'video' && isAnimeMlLook(settings.lookId)) {
+        patchSettings({ lookId: 'none' });
+        setStatus(captureStatus.animeMlPhotoOnly());
+      }
+      setMode(next);
+    },
+    [patchSettings, settings.lookId],
+  );
+
+  const onLookChange = useCallback(
+    (nextLookId: LookPresetId) => {
+      if (isAnimeMlLook(nextLookId) && mode === 'video') {
+        setMode('photo');
+      }
+      manual.onLookChange(nextLookId);
+    },
+    [manual.onLookChange, mode],
+  );
 
   const capture = useCameraCapture({
     cameraRef: session.cameraRef,
@@ -293,7 +318,11 @@ export function CameraScreen() {
             overflow: 'hidden',
           }}
         >
-          <LookOverlay overlay={capture.look.overlay} strength={settings.lookStrength} />
+          <LookOverlay
+            overlay={capture.look.overlay}
+            strength={bakeStrengthForLook(capture.look, settings.lookStrength)}
+            animeMl={isAnimeMlLook(capture.look)}
+          />
           {settings.showPeaking ? (
             <PeakingOverlay intensity={overlays.peakIntensity} focusY={peakingFocusY} />
           ) : null}
@@ -340,7 +369,7 @@ export function CameraScreen() {
           <RecordingTimerBadge active={capture.isRecording} />
           {!capture.isRecording ? (
             <>
-              <ModeToggle mode={mode} onChange={setMode} />
+              <ModeToggle mode={mode} onChange={onModeChange} />
               {session.activeLens ? (
                 <Text className="mt-0.5 text-[10px] font-semibold text-sky-300">
                   {session.activeLens.label}
@@ -390,8 +419,9 @@ export function CameraScreen() {
         <LookPresets
           activeId={settings.lookId}
           scene={lookScene}
+          mode={mode}
           onSceneChange={setLookScene}
-          onChange={manual.onLookChange}
+          onChange={onLookChange}
         />
 
         {manual.showManual ? (

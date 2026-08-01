@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   deleteCapturePreset,
   ensureScenePresets,
+  isAnimeMlLook,
   renameCapturePreset,
   saveCapturePreset,
   type CameraPreset,
@@ -60,9 +61,12 @@ export function useCameraPresets({
   const applyCameraPreset = useCallback(
     (preset: CameraPreset) => {
       const nextSettings = { ...preset.settings };
+      // Anime ML is photo-only — same policy as CameraScreen mode/look switches.
+      const nextMode: CaptureMode =
+        preset.mode === 'video' && isAnimeMlLook(nextSettings.lookId) ? 'photo' : preset.mode;
 
       setSettings(nextSettings);
-      setMode(preset.mode);
+      setMode(nextMode);
       onManualChange(preset.manual);
       setZoom(preset.zoom);
 

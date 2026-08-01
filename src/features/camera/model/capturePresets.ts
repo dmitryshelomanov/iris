@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { isLookPresetId } from './presets';
+import { resolveLookPresetId } from './presets';
 import {
   DEFAULT_CAPTURE_SETTINGS,
   DEFAULT_MANUAL_STATE,
@@ -37,9 +37,7 @@ function normalizeName(name: string) {
 
 function normalizeSettings(settings: CaptureSettings): CaptureSettings {
   const next = { ...DEFAULT_CAPTURE_SETTINGS, ...settings };
-  if (!isLookPresetId(next.lookId)) {
-    next.lookId = DEFAULT_CAPTURE_SETTINGS.lookId;
-  }
+  next.lookId = resolveLookPresetId(next.lookId) ?? DEFAULT_CAPTURE_SETTINGS.lookId;
   return next;
 }
 

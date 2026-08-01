@@ -29,7 +29,7 @@
 <li>📱 Multi-lens switching (<code>0.5×</code> / <code>1×</code> / tele) and smooth zoom</li>
 <li>📸 Photo &amp; video capture → dedicated <strong>Iris</strong> album in Photos</li>
 <li>🎛️ Manual Pro controls (ISO, shutter, WB, focus, EV)</li>
-<li>🎨 Look presets with native bake into captures (<a href="modules/iris-look-bake/"><code>iris-look-bake</code></a>)</li>
+<li>🎨 Look presets with native bake into captures (<a href="modules/iris-look-bake/"><code>iris-look-bake</code></a>), including on-device <strong>Anime ML</strong> (AnimeGANv3 Shinkai / Hayao) for photos</li>
 <li>🧭 Assist overlays: grid, level, histogram, zebra, peaking, aspect crop</li>
 <li>⚡ Capture presets, scene chips, countdown, volume shutter</li>
 <li>🖼️ Gallery + last-shot review</li>
@@ -66,7 +66,7 @@ npm start              # expo start --dev-client
 - [Expo SDK 57 docs](https://docs.expo.dev/versions/v57.0.0/)
 - [Vision Camera](https://github.com/mrousavy/react-native-vision-camera) · [docs](https://visioncamera.margelo.com)
 - [Expo Router](https://docs.expo.dev/router/introduction/)
-- Native look bake: [`modules/iris-look-bake/`](modules/iris-look-bake/)
+- Native look bake: [`modules/iris-look-bake/`](modules/iris-look-bake/) — **Anime ML** uses on-device [AnimeGANv3](https://github.com/TachibanaYoshino/AnimeGANv3) Shinkai / Hayao ONNX weights
 - Privacy policy: [`docs/privacy.md`](docs/privacy.md) · [live page](https://dmitryshelomanov.github.io/iris/privacy/)
 - [Store assets map](docs/STORE-ASSETS.md) — what to upload where, regenerate commands
 

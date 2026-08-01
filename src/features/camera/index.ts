@@ -9,6 +9,7 @@ export type {
   LensId,
   LensKind,
   LensOption,
+  LookMlStyle,
   LookPresetId,
   ManualControlId,
   ManualControlsState,
@@ -25,6 +26,9 @@ export {
   applyLookToManual,
   formatLookStampDate,
   isLookPresetId,
+  resolveLookPresetId,
+  isAnimeMlLook,
+  bakeStrengthForLook,
 } from './model/presets';
 export type { LookPreset, LookOverlay as LookOverlayConfig } from './model/presets';
 export { applyManualToController, seedManualFromController } from './model/applyManual';
@@ -43,6 +47,8 @@ export { aspectFrameLayout } from './model/aspectFrame';
 export type { AspectFrameLayout } from './model/aspectFrame';
 export { bakeLookIntoPhoto } from './model/bakeLook';
 export type { BakeLookResult } from './model/bakeLook';
+export { bakePhotoWithLook } from './model/bakePhotoWithLook';
+export type { BakePhotoWithLookOptions, BakePhotoWithLookResult } from './model/bakePhotoWithLook';
 export {
   bakeLookIntoVideo,
   cancelBakeLookIntoVideo,

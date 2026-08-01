@@ -1,4 +1,4 @@
-import type { LookPresetId, ManualControlsState } from './types';
+import type { LookMlStyle, LookPresetId, ManualControlsState } from './types';
 
 /**
  * Film-style grade baked into stills (and approximated on the live preview).
@@ -49,6 +49,11 @@ export type LookPreset = {
   /** Camera white balance + exposure applied for this look */
   camera: Partial<Pick<ManualControlsState, 'wbKelvin' | 'wbTint' | 'ev'>>;
   overlay: LookOverlay;
+  /**
+   * On-device ML style for photo bake (AnimeGANv3).
+   * Video skips look bake entirely for these presets (photo-only).
+   */
+  mlStyle?: LookMlStyle;
 };
 
 const CLEAN: LookOverlay = {
@@ -405,7 +410,68 @@ export const LOOK_PRESETS: LookPreset[] = [
       edges: 0.25,
     },
   },
+  {
+    id: 'sk',
+    label: 'SK',
+    hint: 'Shinkai',
+    camera: { wbKelvin: 5800, wbTint: 10, ev: 0.15 },
+    mlStyle: 'animegan-v3-shinkai',
+    overlay: {
+      ...CLEAN,
+      // Mild post-ML nudge + live/video approx (toon stripped on ML bake).
+      contrast: 1.06,
+      saturation: 1.12,
+      brightness: 0.01,
+      warmth: 0.04,
+      color: '#5EB0FF',
+      opacity: 0.04,
+      shadows: '#0E2A62',
+      shadowsOpacity: 0.06,
+      highlights: '#FFE6A0',
+      highlightsOpacity: 0.08,
+      bloom: 0.12,
+      smooth: 0.22,
+      posterize: 0.2,
+      edges: 0.06,
+    },
+  },
+  {
+    id: 'hy',
+    label: 'HY',
+    hint: 'Hayao',
+    camera: { wbKelvin: 5400, wbTint: 8, ev: 0.1 },
+    mlStyle: 'animegan-v3-hayao',
+    overlay: {
+      ...CLEAN,
+      contrast: 1.04,
+      saturation: 1.1,
+      brightness: 0.015,
+      warmth: 0.1,
+      color: '#7EC87A',
+      opacity: 0.05,
+      shadows: '#2A4020',
+      shadowsOpacity: 0.05,
+      highlights: '#FFF2C8',
+      highlightsOpacity: 0.06,
+      bloom: 0.08,
+      smooth: 0.28,
+      posterize: 0.22,
+      edges: 0.05,
+    },
+  },
 ];
+
+/** Legacy Anime look ids → current presets. */
+const LEGACY_LOOK_IDS: Record<string, LookPresetId> = {
+  an: 'sk',
+  pk: 'sk',
+};
+
+export function resolveLookPresetId(id: unknown): LookPresetId | null {
+  if (typeof id !== 'string') return null;
+  if (LOOK_PRESETS.some((p) => p.id === id)) return id as LookPresetId;
+  return LEGACY_LOOK_IDS[id] ?? null;
+}
 
 export function isLookPresetId(id: unknown): id is LookPresetId {
   return typeof id === 'string' && LOOK_PRESETS.some((p) => p.id === id);
@@ -419,8 +485,20 @@ export function formatLookStampDate(date: Date = new Date()) {
   return `${yy} ${mm} ${dd}`;
 }
 
-export function getLookPreset(id: LookPresetId): LookPreset {
-  return LOOK_PRESETS.find((p) => p.id === id) ?? LOOK_PRESETS[0];
+export function getLookPreset(id: LookPresetId | string): LookPreset {
+  const resolved = resolveLookPresetId(id) ?? 'none';
+  return LOOK_PRESETS.find((p) => p.id === resolved) ?? LOOK_PRESETS[0];
+}
+
+/** Anime ML looks bake at fixed full strength — no user strength control. */
+export function isAnimeMlLook(look: LookPreset | LookPresetId | string): boolean {
+  const preset = typeof look === 'object' ? look : getLookPreset(look);
+  return preset.mlStyle != null;
+}
+
+export function bakeStrengthForLook(look: LookPreset, requestedStrength: number): number {
+  if (look.mlStyle) return 1;
+  return requestedStrength;
 }
 
 /** Merge look camera knobs into manual state (does not force Manual on). */

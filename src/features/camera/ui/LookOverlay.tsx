@@ -12,6 +12,8 @@ type Props = {
   overlay: LookOverlayConfig;
   /** Bake strength — drives matrix-aligned preview intensity. */
   strength?: number;
+  /** True for AnimeGANv3 looks — enables soft anime live approx (not classical toon ink). */
+  animeMl?: boolean;
 };
 
 function isActive(overlay: LookOverlayConfig) {
@@ -51,7 +53,7 @@ function matrixPreview(matrix: number[]) {
  * Live preview grade — approximates bakeLookIntoPhoto using the same matrix math
  * and strength-scaled blend layers (Multiply / SoftLight / Screen opacities).
  */
-export function LookOverlay({ overlay, strength = 1 }: Props) {
+export function LookOverlay({ overlay, strength = 1, animeMl = false }: Props) {
   const [stampText, setStampText] = useState(() => formatLookStampDate());
   const matrix = useMemo(() => buildGradeMatrix(overlay, strength), [overlay, strength]);
   const preview = useMemo(() => matrixPreview(matrix), [matrix]);
@@ -69,6 +71,8 @@ export function LookOverlay({ overlay, strength = 1 }: Props) {
   const toonEdges = overlay.edges * strength;
   const toonSmooth = overlay.smooth * strength;
   const isToon = toonPosterize > 0.02 || toonEdges > 0.02 || toonSmooth > 0.02;
+  /** Soft anime-ish live approx for ML looks — mild bloom + soft toon, not comic ink. */
+  const isAnimeApprox = animeMl;
 
   useEffect(() => {
     if (stamp <= 0.01) return;
@@ -122,7 +126,22 @@ export function LookOverlay({ overlay, strength = 1 }: Props) {
             StyleSheet.absoluteFill,
             {
               backgroundColor: overlay.color,
-              opacity: Math.min(0.22, (overlay.saturation - 1) * 0.28 * strength),
+              opacity: Math.min(
+                isAnimeApprox ? 0.34 : 0.22,
+                (overlay.saturation - 1) * (isAnimeApprox ? 0.42 : 0.28) * strength,
+              ),
+            },
+          ]}
+        />
+      ) : null}
+
+      {isAnimeApprox ? (
+        <View
+          style={[
+            StyleSheet.absoluteFill,
+            {
+              backgroundColor: '#1E6BFF',
+              opacity: Math.min(0.2, 0.08 + (overlay.saturation - 1.5) * 0.28) * strength,
             },
           ]}
         />

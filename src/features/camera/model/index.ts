@@ -9,6 +9,7 @@ export type {
   LensId,
   LensKind,
   LensOption,
+  LookMlStyle,
   LookPresetId,
   ManualControlId,
   ManualControlsState,
@@ -25,6 +26,9 @@ export {
   applyLookToManual,
   formatLookStampDate,
   isLookPresetId,
+  resolveLookPresetId,
+  isAnimeMlLook,
+  bakeStrengthForLook,
 } from './presets';
 export type { LookPreset, LookOverlay } from './presets';
 export { applyManualToController, seedManualFromController } from './applyManual';
@@ -42,10 +46,14 @@ export { resolutionForAspect, videoResolutionForAspect } from './resolutions';
 export { aspectFrameLayout } from './aspectFrame';
 export type { AspectFrameLayout } from './aspectFrame';
 export { bakeLookIntoPhoto } from './bakeLook';
-export type { BakeLookResult } from './bakeLook';
+export type { BakeLookPhotoOptions, BakeLookResult } from './bakeLook';
+export { bakePhotoWithLook } from './bakePhotoWithLook';
+export type { BakePhotoWithLookOptions, BakePhotoWithLookResult } from './bakePhotoWithLook';
 export { bakeLookIntoVideo, cancelBakeLookIntoVideo, toFileUri, toPath } from './bakeLookVideo';
 export type { BakeVideoLookResult } from './bakeLookVideo';
 export { buildGradeMatrix } from './gradeMatrix';
+export { isLookMlStyle, stylizePhotoWithMl } from './stylizePhoto';
+export type { StylizePhotoResult } from './stylizePhoto';
 export { needsToonPass } from './toonBake';
 export { peakingIntensity } from './peaking';
 export { LOOK_SCENES, looksForScene } from './lookScenes';

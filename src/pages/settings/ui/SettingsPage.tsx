@@ -35,6 +35,9 @@ export function SettingsPage() {
             onChange={(lookStrength) => patchSettings({ lookStrength: Number(lookStrength) })}
           />
         </Row>
+        <Text className="mt-1.5 text-[11px] text-muted-foreground">
+          Anime ML looks always bake at full strength and are photo only (not for video).
+        </Text>
       </Section>
 
       <Section title="Photo">

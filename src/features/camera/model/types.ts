@@ -18,7 +18,25 @@ export type TimerSeconds = 0 | 3 | 10;
 export type VideoFpsOption = 30 | 60 | 'max';
 
 export type LookPresetId =
-  'none' | 'kp' | 'kg' | 'ke' | 'fs' | 'fp' | 'ag' | 'as' | 'pd' | 'tc' | 'tx' | 'tn' | 'cm' | 'pp';
+  | 'none'
+  | 'kp'
+  | 'kg'
+  | 'ke'
+  | 'fs'
+  | 'fp'
+  | 'ag'
+  | 'as'
+  | 'pd'
+  | 'tc'
+  | 'tx'
+  | 'tn'
+  | 'cm'
+  | 'pp'
+  | 'sk'
+  | 'hy';
+
+/** On-device ML stylization keyed on a look preset (photos only in v1). */
+export type LookMlStyle = 'animegan-v3-shinkai' | 'animegan-v3-hayao';
 
 export type LensKind = 'optical' | 'front' | 'multi';
 

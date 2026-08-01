@@ -8,6 +8,7 @@ import {
   cancelBakeLookIntoVideo,
   hapticRecordStart,
   hapticRecordStop,
+  isAnimeMlLook,
   toFileUri,
   toPath,
   type CaptureSettings,
@@ -68,9 +69,11 @@ export function useVideoCapture({
         const masterUri = await persistVideoMaster(filePath);
         let outPath = toPath(filePath);
         let uri = toFileUri(filePath);
-        let lookApplied = settings.lookId === 'none';
+        // Anime ML is photo-only — never bake neural (or classical approx) on video.
+        const skipLook = settings.lookId === 'none' || isAnimeMlLook(lookPreset);
+        let lookApplied = false;
 
-        if (settings.lookId !== 'none') {
+        if (!skipLook) {
           setStatus(captureStatus.applyingLook());
           const baked = await bakeLookIntoVideo(masterUri, lookPreset.overlay, {
             strength: settings.lookStrength,
@@ -83,6 +86,8 @@ export function useVideoCapture({
           outPath = toPath(masterUri);
         }
 
+        const savedLookId = skipLook ? 'none' : settings.lookId;
+
         setStatus(captureStatus.savingVideo());
         const asset = await saveVideoToLibrary(outPath);
         await addCapture({
@@ -90,11 +95,15 @@ export function useVideoCapture({
           rawUri: masterUri,
           libraryAssetId: asset.id,
           kind: 'video',
-          lookId: settings.lookId,
+          lookId: savedLookId,
           lookStrength: settings.lookStrength,
         });
-        if (settings.lookId === 'none') {
-          setStatus(captureStatus.savedVideoNoLook());
+        if (savedLookId === 'none') {
+          setStatus(
+            isAnimeMlLook(lookPreset)
+              ? captureStatus.animeMlPhotoOnly()
+              : captureStatus.savedVideoNoLook(),
+          );
         } else if (lookApplied) {
           setStatus(captureStatus.savedVideoWithLook(lookPreset));
         } else {

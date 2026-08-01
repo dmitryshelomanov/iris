@@ -4,6 +4,7 @@ export const captureStatus = {
   cameraWarmingUp: () => 'Camera warming up…',
   capturingPhoto: () => 'Capturing…',
   applyingLook: () => 'Applying look…',
+  applyingAnimeLook: () => 'Anime stylizing…',
   burstStart: (burstCount: number) => `Burst ${burstCount}×…`,
   burstProgress: (index: number, total: number) => `Burst ${index}/${total}…`,
   savedPhoto: (burstCount: number, look: LookPreset) =>
@@ -20,4 +21,5 @@ export const captureStatus = {
   savedVideoNoLook: () => 'Saved to Photos',
   savedVideoWithLook: (look: LookPreset) => `Saved · ${look.label} · ${look.hint}`,
   savedVideoLookSkipped: (look: LookPreset) => `Saved · look skipped (${look.label})`,
+  animeMlPhotoOnly: () => 'Anime ML is photo only',
 } as const;

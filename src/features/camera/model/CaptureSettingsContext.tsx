@@ -10,7 +10,7 @@ import {
 } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { isLookPresetId } from './presets';
+import { resolveLookPresetId } from './presets';
 import { DEFAULT_CAPTURE_SETTINGS, PERSISTED_CAPTURE_KEYS, type CaptureSettings } from './types';
 
 const SETTINGS_KEY = 'iris.captureSettings.v1';
@@ -40,9 +40,8 @@ function mergeStored(raw: string | null): CaptureSettings {
       ...DEFAULT_CAPTURE_SETTINGS,
       ...pickPersisted({ ...DEFAULT_CAPTURE_SETTINGS, ...parsed }),
     };
-    if (!isLookPresetId(merged.lookId)) {
-      merged.lookId = DEFAULT_CAPTURE_SETTINGS.lookId;
-    }
+    const resolvedLook = resolveLookPresetId(merged.lookId);
+    merged.lookId = resolvedLook ?? DEFAULT_CAPTURE_SETTINGS.lookId;
     if (merged.videoFps !== 'max' && merged.videoFps !== 30 && merged.videoFps !== 60) {
       merged.videoFps = DEFAULT_CAPTURE_SETTINGS.videoFps;
     }

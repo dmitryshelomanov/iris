@@ -4,7 +4,9 @@ import { Text } from '@/shared/ui/text';
 import {
   LOOK_SCENES,
   getLookPreset,
+  isAnimeMlLook,
   looksForScene,
+  type CaptureMode,
   type LookPreset,
   type LookPresetId,
   type LookSceneId,
@@ -15,6 +17,7 @@ import { hapticSelect } from '../model/haptics';
 type Props = {
   activeId: LookPresetId;
   scene: LookSceneId;
+  mode: CaptureMode;
   onSceneChange: (scene: LookSceneId) => void;
   onChange: (id: LookPresetId) => void;
 };
@@ -25,24 +28,30 @@ function swatchColor(look: LookPreset) {
   if (look.id === 'tn') return '#FFE566';
   if (look.id === 'cm') return '#1A1A1A';
   if (look.id === 'pp') return '#FF4FD8';
+  if (look.id === 'sk') return '#5EB0FF';
+  if (look.id === 'hy') return '#7EC87A';
   return look.overlay.color;
 }
 
 function LookChip({
   look,
   active,
+  dimmed,
   onPress,
 }: {
   look: LookPreset;
   active: boolean;
+  dimmed: boolean;
   onPress: () => void;
 }) {
+  const ml = isAnimeMlLook(look);
   return (
     <Pressable
       onPress={onPress}
       className={cn(
         'flex-row items-center gap-1.5 rounded-full border px-2.5 py-1',
         active ? 'border-amber-400 bg-amber-400/20' : 'border-white/15 bg-black/40',
+        dimmed && 'opacity-45',
       )}
     >
       <View
@@ -55,13 +64,24 @@ function LookChip({
       <Text className={cn('text-[11px] font-semibold', active ? 'text-amber-300' : 'text-white')}>
         {look.label}
       </Text>
+      {ml ? (
+        <Text
+          className={cn(
+            'text-[9px] font-semibold uppercase tracking-wide',
+            active ? 'text-amber-300/70' : 'text-white/45',
+          )}
+        >
+          Photo
+        </Text>
+      ) : null}
     </Pressable>
   );
 }
 
-export function LookPresets({ activeId, scene, onSceneChange, onChange }: Props) {
+export function LookPresets({ activeId, scene, mode, onSceneChange, onChange }: Props) {
   const sceneLooks = looksForScene(scene);
   const activeLook = getLookPreset(activeId);
+  const activeMl = isAnimeMlLook(activeLook);
 
   return (
     <View className="gap-1.5">
@@ -96,6 +116,7 @@ export function LookPresets({ activeId, scene, onSceneChange, onChange }: Props)
           <Text className="font-semibold text-amber-300/90">{activeLook.label}</Text>
           {' · '}
           {activeLook.hint}
+          {activeMl ? ' · Photo only · not for video' : ''}
         </Text>
       ) : null}
 
@@ -106,11 +127,13 @@ export function LookPresets({ activeId, scene, onSceneChange, onChange }: Props)
       >
         {sceneLooks.map((look) => {
           const active = look.id === activeId;
+          const ml = isAnimeMlLook(look);
           return (
             <LookChip
               key={look.id}
               look={look}
               active={active}
+              dimmed={ml && mode === 'video'}
               onPress={() => {
                 hapticSelect();
                 onChange(look.id);
@@ -126,12 +149,13 @@ export function LookPresets({ activeId, scene, onSceneChange, onChange }: Props)
 type StrengthProps = {
   value: number;
   onChange: (value: number) => void;
+  disabled?: boolean;
 };
 
-export function LookStrengthSlider({ value, onChange }: StrengthProps) {
+export function LookStrengthSlider({ value, onChange, disabled = false }: StrengthProps) {
   const steps = [0.35, 0.55, 0.75, 1];
   return (
-    <View className="flex-row items-center gap-2">
+    <View className={cn('flex-row items-center gap-2', disabled && 'opacity-40')}>
       <Text className="text-[10px] font-semibold text-white/60">Strength</Text>
       <View className="flex-1 flex-row gap-1">
         {steps.map((step) => {
@@ -139,6 +163,7 @@ export function LookStrengthSlider({ value, onChange }: StrengthProps) {
           return (
             <Pressable
               key={step}
+              disabled={disabled}
               onPress={() => onChange(step)}
               className={cn(
                 'flex-1 items-center rounded-md py-1',
