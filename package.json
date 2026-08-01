@@ -92,6 +92,7 @@
     "build:android:preview:local": "eas build --platform android --profile preview --local",
     "build:android": "eas build --platform android --profile production",
     "build:android:local": "eas build --platform android --profile production --local",
+    "release:android:github": "bash scripts/release-android-github.sh",
     "submit:android": "eas submit --platform android --profile production",
     "screenshots:store": "node scripts/generate-store-screenshots.mjs",
     "screenshots:play": "node scripts/generate-play-store-assets.mjs",

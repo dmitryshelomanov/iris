@@ -79,11 +79,14 @@ npm start              # expo start --dev-client
 - iPhone App Store screenshots (ready): [`docs/store-screenshots/*.png`](docs/store-screenshots/)
 
 ```bash
-npm run build:android:preview   # APK for device sideload
-npm run build:android           # AAB for Play Store
-npm run screenshots:store       # iPhone marketing set (1290×2796)
-npm run screenshots:play        # Play graphic + Android framed screenshots
+npm run build:android:preview:local   # local APK for sideload (preferred)
+npm run release:android:github        # upload newest preview APK to GitHub Releases
+npm run build:android:local           # local AAB for Play Store
+npm run screenshots:store             # iPhone marketing set (1290×2796)
+npm run screenshots:play              # Play graphic + Android framed screenshots
 ```
+
+GitHub Releases (sideload APK): https://github.com/dmitryshelomanov/iris/releases
 
 ## Store release checklist
 
@@ -118,9 +121,10 @@ Full asset map: [`docs/STORE-ASSETS.md`](docs/STORE-ASSETS.md). Android upload s
 | `npm start`                     | Metro + Dev Client                            |
 | `npm run ios`                   | Native Debug build and launch                 |
 | `npm run ios:prod`              | Release build on a physical device (no Metro) |
-| `npm run build:android:preview` | EAS Android APK (internal / sideload)         |
-| `npm run build:android`         | EAS Android AAB (Play Store)                  |
-| `npm run submit:android`        | EAS submit to Play (`internal` track)         |
+| `npm run build:android:preview:local` | Local EAS Android APK (sideload)          |
+| `npm run release:android:github`      | Upload preview APK to GitHub Releases     |
+| `npm run build:android:local`         | Local EAS Android AAB (Play Store)        |
+| `npm run submit:android`              | EAS submit to Play (`internal` track)     |
 | `npm run screenshots:store`     | iPhone App Store marketing screenshots        |
 | `npm run screenshots:play`      | Play feature graphic + Android screenshots    |
 | `npm run lint`                  | Prettier check + typecheck                    |
