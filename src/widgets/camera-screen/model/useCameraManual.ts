@@ -75,7 +75,6 @@ export function useCameraManual({
   patchSettings,
 }: Options) {
   const [manual, setManualState] = useState<ManualControlsState>(DEFAULT_MANUAL_STATE);
-  const [showManual, setShowManual] = useState(false);
   const [exposureLimits, setExposureLimits] =
     useState<ExposureUiLimits>(DEFAULT_EXPOSURE_UI_LIMITS);
 
@@ -270,8 +269,6 @@ export function useCameraManual({
 
   return {
     manual,
-    showManual,
-    setShowManual,
     exposureLimits,
     onManualChange,
     onLookChange,

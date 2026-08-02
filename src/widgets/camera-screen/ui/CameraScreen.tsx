@@ -1,12 +1,6 @@
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { useIsFocused, useRouter, type Href } from 'expo-router';
-import {
-  Bookmark,
-  FlipHorizontal2,
-  Images,
-  Settings,
-  SlidersHorizontal,
-} from 'lucide-react-native';
+import { Bookmark, FlipHorizontal2, Images, Settings } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   AppState,
@@ -33,7 +27,6 @@ import {
   LevelOverlay,
   LookOverlay,
   LookPresets,
-  ManualControls,
   ModeToggle,
   PeakingOverlay,
   ProQuickControls,
@@ -346,18 +339,16 @@ export function CameraScreen() {
             />
           </View>
 
-          {!manual.showManual ? (
-            <ProQuickControls
-              value={manual.manual}
-              capabilities={session.capabilities}
-              canManualFocus={catalogSupportsManualFocus(session.lenses)}
-              canManualExposure={catalogSupportsManualExposure(session.lenses)}
-              exposureLimits={manual.exposureLimits}
-              onChange={manual.onManualChange}
-              onUnsupported={(id) => setStatus(unsupportedManualMessage(id))}
-              wheelHeight={Math.max(140, Math.min(220, frame.height * 0.42))}
-            />
-          ) : null}
+          <ProQuickControls
+            value={manual.manual}
+            capabilities={session.capabilities}
+            canManualFocus={catalogSupportsManualFocus(session.lenses)}
+            canManualExposure={catalogSupportsManualExposure(session.lenses)}
+            exposureLimits={manual.exposureLimits}
+            onChange={manual.onManualChange}
+            onUnsupported={(id) => setStatus(unsupportedManualMessage(id))}
+            wheelHeight={Math.max(140, Math.min(220, frame.height * 0.42))}
+          />
 
           <FocusReticle state={preview.focusReticle} />
         </View>
@@ -473,14 +464,6 @@ export function CameraScreen() {
           onBurstChange={(burstCount) => patchSettings({ burstCount })}
         />
 
-        {manual.showManual ? (
-          <ManualControls
-            value={manual.manual}
-            capabilities={session.capabilities}
-            onChange={manual.onManualChange}
-          />
-        ) : null}
-
         <View className="relative h-16 w-full items-center justify-center">
           <View className="absolute left-1 top-0 bottom-0 justify-center">
             <LastShotButton
@@ -505,18 +488,6 @@ export function CameraScreen() {
               className="h-10 w-10 items-center justify-center rounded-xl bg-black/45"
             >
               <Icon as={Bookmark} size={18} className="text-white" />
-            </Pressable>
-            <Pressable
-              onPress={() => manual.setShowManual((v) => !v)}
-              className="h-10 w-10 items-center justify-center rounded-xl bg-black/45"
-            >
-              <Icon
-                as={SlidersHorizontal}
-                size={18}
-                className={
-                  manual.showManual || manual.manual.enabled ? 'text-amber-400' : 'text-white'
-                }
-              />
             </Pressable>
           </View>
         </View>

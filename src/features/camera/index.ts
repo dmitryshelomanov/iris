@@ -90,7 +90,6 @@ export { GridOverlay } from './ui/GridOverlay';
 export { LevelOverlay } from './ui/LevelOverlay';
 export { LookOverlay } from './ui/LookOverlay';
 export { LookPresets, LookStrengthSlider } from './ui/LookPresets';
-export { ManualControls } from './ui/ManualControls';
 export { ModeToggle } from './ui/ModeToggle';
 export { ProQuickControls, unsupportedManualMessage } from './ui/ProQuickControls';
 export type { ProQuickControlId } from './ui/ProQuickControls';
