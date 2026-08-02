@@ -2,12 +2,18 @@ import type { ReactNode } from 'react';
 import { Linking, Pressable, ScrollView, View } from 'react-native';
 import Constants from 'expo-constants';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import type { MirrorMode, QualityPrioritization } from 'react-native-vision-camera';
+import type { FlashMode, MirrorMode, QualityPrioritization } from 'react-native-vision-camera';
 
 import { Button } from '@/shared/ui/button';
 import { Separator } from '@/shared/ui/separator';
 import { Text } from '@/shared/ui/text';
-import { useCaptureSettings, type AspectRatio, type VideoFpsOption } from '@/features/camera';
+import {
+  useCaptureSettings,
+  type AspectRatio,
+  type CaptureSettings,
+  type TimerSeconds,
+  type VideoFpsOption,
+} from '@/features/camera';
 import { cn } from '@/shared/lib/utils';
 
 function appVersionLabel(): string {
@@ -46,6 +52,57 @@ export function SettingsPage() {
         <Text className="mt-1.5 text-[11px] text-muted-foreground">
           Strength applies to film and Anime ML (photo blend). Anime ML is photo only (not for video).
         </Text>
+      </Section>
+
+      <Section title="Capture">
+        <Row label="Flash">
+          <Segmented
+            value={settings.flashMode}
+            options={[
+              { value: 'off', label: 'Off' },
+              { value: 'on', label: 'On' },
+              { value: 'auto', label: 'Auto' },
+            ]}
+            onChange={(flashMode) => patchSettings({ flashMode: flashMode as FlashMode })}
+          />
+        </Row>
+        <Separator />
+        <ToggleRow
+          label="Torch"
+          hint="Continuous light while previewing"
+          value={settings.torchOn}
+          onChange={(torchOn) => patchSettings({ torchOn })}
+        />
+        <Separator />
+        <Row label="Timer">
+          <Segmented
+            value={String(settings.timerSeconds)}
+            options={[
+              { value: '0', label: 'Off' },
+              { value: '3', label: '3s' },
+              { value: '10', label: '10s' },
+            ]}
+            onChange={(timerSeconds) =>
+              patchSettings({ timerSeconds: Number(timerSeconds) as TimerSeconds })
+            }
+          />
+        </Row>
+        <Separator />
+        <Row label="Burst">
+          <Segmented
+            value={String(settings.burstCount)}
+            options={[
+              { value: '1', label: 'Single' },
+              { value: '3', label: '3×' },
+              { value: '5', label: '5×' },
+            ]}
+            onChange={(burstCount) =>
+              patchSettings({
+                burstCount: Number(burstCount) as CaptureSettings['burstCount'],
+              })
+            }
+          />
+        </Row>
       </Section>
 
       <Section title="Photo">
