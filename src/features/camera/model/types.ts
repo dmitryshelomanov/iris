@@ -68,7 +68,7 @@ export interface ManualControlsState {
   wbKelvin: number;
   /** Green/magenta tint (−150…150) */
   wbTint: number;
-  /** Manual focus lens position 0..1 */
+  /** Manual focus dial 0..1 — 0 far/infinity, 1 near/macro (soft for distant scenes) */
   focus: number;
   /** Exposure bias in EV */
   ev: number;
@@ -76,7 +76,7 @@ export interface ManualControlsState {
 
 export const DEFAULT_MANUAL_STATE: ManualControlsState = {
   enabled: false,
-  activeControl: 'ev',
+  activeControl: 'focus',
   iso: 100,
   shutter: 1 / 60,
   wbKelvin: 5500,
@@ -140,8 +140,9 @@ export const DEFAULT_CAPTURE_SETTINGS: CaptureSettings = {
   showAspectCrop: true,
 };
 
-/** Keys persisted across launches (session flash/torch stay ephemeral). */
+/** Keys persisted across launches (torch stays ephemeral). */
 export const PERSISTED_CAPTURE_KEYS = [
+  'flashMode',
   'timerSeconds',
   'aspect',
   'lookId',

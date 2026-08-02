@@ -3,6 +3,9 @@ import { Pressable, View } from 'react-native';
 import { Text } from '@/shared/ui/text';
 import type { CameraCapabilities, ManualControlId, ManualControlsState } from '../model';
 import { cn } from '@/shared/lib/utils';
+import { TickSlider } from './TickSlider';
+
+type AdvancedId = Extract<ManualControlId, 'wb' | 'tint' | 'ev'>;
 
 type Props = {
   value: ManualControlsState;
@@ -10,42 +13,26 @@ type Props = {
   onChange: (next: ManualControlsState) => void;
 };
 
-const CONTROLS: { id: ManualControlId; label: string }[] = [
-  { id: 'iso', label: 'ISO' },
-  { id: 'shutter', label: 'SS' },
+/** Advanced panel: WB / Tint / EV (ISO/SS/Focus live on the main Pro row). */
+const CONTROLS: { id: AdvancedId; label: string }[] = [
   { id: 'wb', label: 'WB' },
   { id: 'tint', label: 'Tint' },
-  { id: 'focus', label: 'AF' },
   { id: 'ev', label: 'EV' },
 ];
 
-function formatValue(state: ManualControlsState, id: ManualControlId): string {
+function formatValue(state: ManualControlsState, id: AdvancedId): string {
   switch (id) {
-    case 'iso':
-      return String(Math.round(state.iso));
-    case 'shutter': {
-      const recip = Math.round(1 / Math.max(state.shutter, 1 / 8000));
-      return `1/${recip}`;
-    }
     case 'wb':
       return `${Math.round(state.wbKelvin)}K`;
     case 'tint':
       return `${state.wbTint >= 0 ? '+' : ''}${Math.round(state.wbTint)}`;
-    case 'focus':
-      return state.focus.toFixed(2);
     case 'ev':
       return `${state.ev >= 0 ? '+' : ''}${state.ev.toFixed(1)}`;
   }
 }
 
-function isLockedOut(capabilities: CameraCapabilities, id: ManualControlId): boolean {
+function isLockedOut(capabilities: CameraCapabilities, id: AdvancedId): boolean {
   switch (id) {
-    case 'iso':
-      return !capabilities.supportsManualISO;
-    case 'shutter':
-      return !capabilities.supportsManualShutter;
-    case 'focus':
-      return !capabilities.supportsManualFocus;
     case 'wb':
     case 'tint':
       return !capabilities.supportsWhiteBalance;
@@ -54,45 +41,68 @@ function isLockedOut(capabilities: CameraCapabilities, id: ManualControlId): boo
   }
 }
 
-function stepControl(
-  state: ManualControlsState,
-  id: ManualControlId,
-  dir: 1 | -1,
+function sliderRange(
+  id: AdvancedId,
   capabilities: CameraCapabilities,
-): ManualControlsState {
+): { min: number; max: number; step: number } {
+  switch (id) {
+    case 'wb':
+      return { min: 2500, max: 8000, step: 50 };
+    case 'tint':
+      return { min: -150, max: 150, step: 5 };
+    case 'ev':
+      return {
+        min: capabilities.minExposureBias,
+        max: capabilities.maxExposureBias,
+        step: 0.1,
+      };
+  }
+}
+
+function readNumeric(state: ManualControlsState, id: AdvancedId): number {
+  switch (id) {
+    case 'wb':
+      return state.wbKelvin;
+    case 'tint':
+      return state.wbTint;
+    case 'ev':
+      return state.ev;
+  }
+}
+
+function writeNumeric(state: ManualControlsState, id: AdvancedId, n: number): ManualControlsState {
   const next = { ...state };
   switch (id) {
-    case 'iso':
-      next.iso = Math.min(12800, Math.max(25, state.iso * (dir > 0 ? 2 : 0.5)));
-      break;
-    case 'shutter':
-      next.shutter = Math.min(1, Math.max(1 / 8000, state.shutter * (dir > 0 ? 2 : 0.5)));
-      break;
     case 'wb':
-      next.wbKelvin = Math.min(8000, Math.max(2500, state.wbKelvin + dir * 100));
+      next.wbKelvin = n;
       break;
     case 'tint':
-      next.wbTint = Math.min(150, Math.max(-150, state.wbTint + dir * 5));
-      break;
-    case 'focus':
-      next.focus = Math.min(1, Math.max(0, Number((state.focus + dir * 0.05).toFixed(2))));
+      next.wbTint = n;
       break;
     case 'ev':
-      next.ev = Math.min(
-        capabilities.maxExposureBias,
-        Math.max(capabilities.minExposureBias, Number((state.ev + dir * 0.3).toFixed(1))),
-      );
+      next.ev = Number(n.toFixed(1));
       break;
   }
   return next;
 }
 
+function ensureAdvancedActive(state: ManualControlsState): AdvancedId {
+  if (state.activeControl === 'wb' || state.activeControl === 'tint' || state.activeControl === 'ev') {
+    return state.activeControl;
+  }
+  return 'ev';
+}
+
 export function ManualControls({ value, capabilities, onChange }: Props) {
+  const activeId = ensureAdvancedActive(value);
+  const range = sliderRange(activeId, capabilities);
+  const canEdit = value.enabled || activeId === 'ev';
+
   return (
     <View className="w-full gap-2 rounded-xl bg-black/55 px-2.5 py-2">
       <View className="flex-row items-center justify-between">
         <Text className="text-[10px] font-semibold uppercase tracking-widest text-white/70">
-          Manual
+          Advanced
         </Text>
         <Pressable
           onPress={() => onChange({ ...value, enabled: !value.enabled })}
@@ -112,24 +122,24 @@ export function ManualControls({ value, capabilities, onChange }: Props) {
       <View className="flex-row flex-wrap gap-1.5">
         {CONTROLS.map((control) => {
           const lockedOut = isLockedOut(capabilities, control.id);
-          const active = value.activeControl === control.id;
-          const canEdit = value.enabled || control.id === 'ev';
+          const active = activeId === control.id;
+          const editable = value.enabled || control.id === 'ev';
 
           return (
             <Pressable
               key={control.id}
-              disabled={!canEdit || lockedOut}
+              disabled={!editable || lockedOut}
               onPress={() => onChange({ ...value, activeControl: control.id })}
               className={cn(
                 'min-w-[44px] rounded-lg px-2 py-1',
-                active && canEdit ? 'bg-white' : 'bg-white/10',
-                (!canEdit || lockedOut) && 'opacity-40',
+                active && editable ? 'bg-white' : 'bg-white/10',
+                (!editable || lockedOut) && 'opacity-40',
               )}
             >
               <Text
                 className={cn(
                   'text-[9px] font-semibold uppercase',
-                  active && canEdit ? 'text-black/60' : 'text-white/50',
+                  active && editable ? 'text-black/60' : 'text-white/50',
                 )}
               >
                 {control.label}
@@ -137,7 +147,7 @@ export function ManualControls({ value, capabilities, onChange }: Props) {
               <Text
                 className={cn(
                   'text-xs font-semibold',
-                  active && canEdit ? 'text-black' : 'text-white',
+                  active && editable ? 'text-black' : 'text-white',
                 )}
               >
                 {formatValue(value, control.id)}
@@ -147,24 +157,23 @@ export function ManualControls({ value, capabilities, onChange }: Props) {
         })}
       </View>
 
-      {value.enabled || value.activeControl === 'ev' ? (
-        <View className="flex-row items-center justify-between gap-2">
-          <Pressable
-            onPress={() => onChange(stepControl(value, value.activeControl, -1, capabilities))}
-            className="h-8 flex-1 items-center justify-center rounded-lg bg-white/10"
-          >
-            <Text className="text-base font-semibold text-white">−</Text>
-          </Pressable>
-          <Text className="min-w-14 text-center text-[11px] text-white/50">
-            {formatValue(value, value.activeControl)}
-          </Text>
-          <Pressable
-            onPress={() => onChange(stepControl(value, value.activeControl, 1, capabilities))}
-            className="h-8 flex-1 items-center justify-center rounded-lg bg-white/10"
-          >
-            <Text className="text-base font-semibold text-white">+</Text>
-          </Pressable>
-        </View>
+      {canEdit && !isLockedOut(capabilities, activeId) ? (
+        <TickSlider
+          value={readNumeric(value, activeId)}
+          min={range.min}
+          max={range.max}
+          step={range.step}
+          showHeader={false}
+          formatValue={() => formatValue(value, activeId)}
+          onChange={(n) => {
+            const next = writeNumeric(value, activeId, n);
+            if (activeId !== 'ev' && !next.enabled) {
+              onChange({ ...next, enabled: true, activeControl: activeId });
+              return;
+            }
+            onChange({ ...next, activeControl: activeId });
+          }}
+        />
       ) : null}
     </View>
   );

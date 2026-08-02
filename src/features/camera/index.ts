@@ -14,7 +14,7 @@ export type {
   ManualControlId,
   ManualControlsState,
 } from './model/types';
-export { buildCapabilities, buildLensCatalog, zoomRange } from './model/lenses';
+export { buildCapabilities, buildLensCatalog, zoomRange, pickManualFocusLens, catalogSupportsManualFocus, catalogSupportsManualExposure } from './model/lenses';
 export { resolveVideoFps } from './model/videoFps';
 export {
   resolvePreviewStabilizationMode,
@@ -31,11 +31,19 @@ export {
   bakeStrengthForLook,
 } from './model/presets';
 export type { LookPreset, LookOverlay as LookOverlayConfig } from './model/presets';
+export { applyManualToController, isCameraControlCanceled, seedManualFromController, uiFocusToLens, lensToUiFocus } from './model/applyManual';
+export type { ApplyManualOptions } from './model/applyManual';
 export {
-  applyManualToController,
-  isCameraControlCanceled,
-  seedManualFromController,
-} from './model/applyManual';
+  DEFAULT_EXPOSURE_UI_LIMITS,
+  exposureLimitsFromController,
+  formatIso,
+  formatShutter,
+  isoFromT,
+  isoToT,
+  shutterFromT,
+  shutterToT,
+} from './model/manualRanges';
+export type { ExposureUiLimits } from './model/manualRanges';
 export {
   defaultPresetName,
   deleteCapturePreset,
@@ -74,8 +82,8 @@ export {
 } from './model/haptics';
 
 export { CaptureButton } from './ui/CaptureButton';
-export { CameraPresetsDialog } from './ui/CameraPresetsDialog';
 export { CaptureToolbar } from './ui/CaptureToolbar';
+export { CameraPresetsDialog } from './ui/CameraPresetsDialog';
 export { BakeOverlay } from './ui/BakeOverlay';
 export { CountdownOverlay } from './ui/CountdownOverlay';
 export { GridOverlay } from './ui/GridOverlay';
@@ -84,6 +92,10 @@ export { LookOverlay } from './ui/LookOverlay';
 export { LookPresets, LookStrengthSlider } from './ui/LookPresets';
 export { ManualControls } from './ui/ManualControls';
 export { ModeToggle } from './ui/ModeToggle';
+export { ProQuickControls, unsupportedManualMessage } from './ui/ProQuickControls';
+export type { ProQuickControlId } from './ui/ProQuickControls';
+export { TickSlider } from './ui/TickSlider';
+export { TickWheel } from './ui/TickWheel';
 export { StabilizationCrosshairOverlay } from './ui/StabilizationCrosshairOverlay';
 export { AspectCropOverlay } from './ui/AspectCropOverlay';
 export { FocusReticle } from './ui/FocusReticle';

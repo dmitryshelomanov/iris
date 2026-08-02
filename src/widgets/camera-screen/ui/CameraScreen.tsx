@@ -36,11 +36,15 @@ import {
   ManualControls,
   ModeToggle,
   PeakingOverlay,
+  ProQuickControls,
+  unsupportedManualMessage,
   RecordingTimerBadge,
   ScenePresetChips,
   StabilizationCrosshairOverlay,
   aspectFrameLayout,
   bakeStrengthForLook,
+  catalogSupportsManualExposure,
+  catalogSupportsManualFocus,
   clamp,
   defaultPresetName,
   isAnimeMlLook,
@@ -125,6 +129,8 @@ export function CameraScreen() {
     controllerReady: session.controllerReady,
     lookId: settings.lookId,
     isCapturing,
+    ensureManualFocusLens: session.ensureManualFocusLens,
+    restoreLensAfterManual: session.restoreLensAfterManual,
     setStatus,
     patchSettings,
   });
@@ -175,6 +181,7 @@ export function CameraScreen() {
   const preview = usePreviewInteraction({
     cameraRef: session.cameraRef,
     manualEnabled: manual.manual.enabled,
+    onTapFocusWhileManual: manual.onTapFocusWhileManual,
     countdown: capture.countdown,
     isCapturing: capture.isCapturing,
     setStatus,
@@ -208,10 +215,18 @@ export function CameraScreen() {
     if (preview.aeAfLocked) {
       if (isCapturingRef.current || capture.isCapturing) return;
       await preview.unlockAeAf();
+      manual.clearAfFocusOverride();
       return;
     }
+    manual.clearAfFocusOverride();
     session.onFlip();
-  }, [capture.isCapturing, preview.aeAfLocked, preview.unlockAeAf, session.onFlip]);
+  }, [
+    capture.isCapturing,
+    manual.clearAfFocusOverride,
+    preview.aeAfLocked,
+    preview.unlockAeAf,
+    session.onFlip,
+  ]);
 
   const onToggleFavorite = useCallback(
     async (id: string) => {
@@ -310,6 +325,39 @@ export function CameraScreen() {
               onError={(error) => setStatus(error.message)}
             />
           </GestureDetector>
+        </View>
+      ) : null}
+
+      {hasFrame && frameStyle ? (
+        <View pointerEvents="box-none" style={{ ...frameStyle, zIndex: 30 }}>
+          {/* Look / scene chips sit above the ISO·SS·Focus row */}
+          <View pointerEvents="box-none" className="absolute bottom-14 left-0 right-12 gap-1 px-2">
+            <ScenePresetChips
+              presets={presets.presets}
+              onApply={presets.applyCameraPreset}
+              onOpenAll={() => presets.setPresetsOpen(true)}
+            />
+            <LookPresets
+              activeId={settings.lookId}
+              scene={lookScene}
+              mode={mode}
+              onSceneChange={setLookScene}
+              onChange={onLookChange}
+            />
+          </View>
+
+          {!manual.showManual ? (
+            <ProQuickControls
+              value={manual.manual}
+              capabilities={session.capabilities}
+              canManualFocus={catalogSupportsManualFocus(session.lenses)}
+              canManualExposure={catalogSupportsManualExposure(session.lenses)}
+              exposureLimits={manual.exposureLimits}
+              onChange={manual.onManualChange}
+              onUnsupported={(id) => setStatus(unsupportedManualMessage(id))}
+              wheelHeight={Math.max(140, Math.min(220, frame.height * 0.42))}
+            />
+          ) : null}
 
           <FocusReticle state={preview.focusReticle} />
         </View>
@@ -423,20 +471,6 @@ export function CameraScreen() {
           onTimerChange={(timerSeconds) => patchSettings({ timerSeconds })}
           onAspectChange={(aspect) => patchSettings({ aspect })}
           onBurstChange={(burstCount) => patchSettings({ burstCount })}
-        />
-
-        <ScenePresetChips
-          presets={presets.presets}
-          onApply={presets.applyCameraPreset}
-          onOpenAll={() => presets.setPresetsOpen(true)}
-        />
-
-        <LookPresets
-          activeId={settings.lookId}
-          scene={lookScene}
-          mode={mode}
-          onSceneChange={setLookScene}
-          onChange={onLookChange}
         />
 
         {manual.showManual ? (

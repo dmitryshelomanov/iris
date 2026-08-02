@@ -38,6 +38,22 @@ function toFrontOption(device: CameraDevice): LensOption {
   };
 }
 
+function toPhysicalBackOption(device: CameraDevice): LensOption {
+  const mm = nativeMm(device);
+  return {
+    id: `${device.id}@native`,
+    label: `${mm}mm`,
+    hint: device.type === 'ultra-wide-angle' ? 'Ultra wide' : device.type === 'telephoto' ? 'Tele' : 'Wide',
+    device,
+    zoom: device.minZoom < 0.95 ? 1 : device.minZoom,
+    position: 'back',
+    deviceType: device.type,
+    focalLengthMm: mm,
+    kind: 'optical',
+    isNative: true,
+  };
+}
+
 function toBackFallbackOption(device: CameraDevice): LensOption {
   const mm = nativeMm(device);
   return {
@@ -69,7 +85,22 @@ function pickPrimaryBackDevice(devices: CameraDevice[]): CameraDevice | undefine
   })[0];
 }
 
-/** Multi + Front; falls back to a single back device when virtual multi-cam is unavailable. */
+/** Physical back lenses in stable UW → wide → tele order. */
+function physicalBackOptions(devices: CameraDevice[]): LensOption[] {
+  const physical = devices.filter(
+    (d) => d.position === 'back' && !d.isVirtualDevice && PHYSICAL_LENS_TYPES.includes(d.type),
+  );
+  const order: Record<string, number> = {
+    'ultra-wide-angle': 0,
+    'wide-angle': 1,
+    telephoto: 2,
+  };
+  return [...physical]
+    .sort((a, b) => (order[a.type] ?? 9) - (order[b.type] ?? 9))
+    .map(toPhysicalBackOption);
+}
+
+/** Multi + physical UW/wide/tele + Front; falls back to a single back device when multi is unavailable. */
 export function buildLensCatalog(devices: CameraDevice[]): LensOption[] {
   const result: LensOption[] = [];
 
@@ -96,9 +127,14 @@ export function buildLensCatalog(devices: CameraDevice[]): LensOption[] {
       focalLengthMm: wide ? nativeMm(wide) : 24,
       isNative: true,
     });
+    result.push(...physicalBackOptions(devices));
   } else {
     const back = pickPrimaryBackDevice(devices);
     if (back) result.push(toBackFallbackOption(back));
+    // Avoid duplicating the fallback if it is already a physical typed lens.
+    for (const optical of physicalBackOptions(devices)) {
+      if (!result.some((l) => l.id === optical.id)) result.push(optical);
+    }
   }
 
   const front =
@@ -109,6 +145,31 @@ export function buildLensCatalog(devices: CameraDevice[]): LensOption[] {
   }
 
   return result;
+}
+
+/**
+ * Prefer physical wide with focus lock; else any back lens that can lock focus.
+ * Used when Pro Focus is enabled on a virtual Multi device.
+ */
+export function pickManualFocusLens(lenses: LensOption[]): LensOption | undefined {
+  const back = lenses.filter((l) => l.position === 'back' && l.device.supportsFocusLocking);
+  if (back.length === 0) return undefined;
+
+  return (
+    back.find((l) => l.deviceType === 'wide-angle' && !l.device.isVirtualDevice) ??
+    back.find((l) => l.kind === 'optical' && !l.device.isVirtualDevice) ??
+    back[0]
+  );
+}
+
+/** True if any catalog lens can lock focus (e.g. physical wide while Multi is active). */
+export function catalogSupportsManualFocus(lenses: LensOption[]): boolean {
+  return lenses.some((l) => l.device.supportsFocusLocking);
+}
+
+/** True if any catalog lens can lock exposure (ISO/SS). */
+export function catalogSupportsManualExposure(lenses: LensOption[]): boolean {
+  return lenses.some((l) => l.device.supportsExposureLocking);
 }
 
 /** Usable zoom range for imperative setZoom clamps. */

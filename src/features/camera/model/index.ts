@@ -14,7 +14,7 @@ export type {
   ManualControlId,
   ManualControlsState,
 } from './types';
-export { buildCapabilities, buildLensCatalog, zoomRange } from './lenses';
+export { buildCapabilities, buildLensCatalog, zoomRange, pickManualFocusLens, catalogSupportsManualFocus, catalogSupportsManualExposure } from './lenses';
 export { resolveVideoFps } from './videoFps';
 export {
   resolvePreviewStabilizationMode,
@@ -35,7 +35,21 @@ export {
   applyManualToController,
   isCameraControlCanceled,
   seedManualFromController,
+  uiFocusToLens,
+  lensToUiFocus,
 } from './applyManual';
+export type { ApplyManualOptions } from './applyManual';
+export {
+  DEFAULT_EXPOSURE_UI_LIMITS,
+  exposureLimitsFromController,
+  formatIso,
+  formatShutter,
+  isoFromT,
+  isoToT,
+  shutterFromT,
+  shutterToT,
+} from './manualRanges';
+export type { ExposureUiLimits } from './manualRanges';
 export {
   defaultPresetName,
   deleteCapturePreset,

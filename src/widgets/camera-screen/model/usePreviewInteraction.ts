@@ -28,17 +28,20 @@ const FOCUS_OPTIONS_LOCKED = {
 
 type Options = {
   cameraRef: RefObject<CameraRef | null>;
-  manualEnabled: boolean;
   countdown: number | null;
   isCapturing: boolean;
+  /** When Pro manual is on, tap-to-focus should pause lens-position locks. */
+  onTapFocusWhileManual?: () => void;
+  manualEnabled: boolean;
   setStatus: (status: string | null) => void;
 };
 
 export function usePreviewInteraction({
   cameraRef,
-  manualEnabled,
   countdown,
   isCapturing,
+  onTapFocusWhileManual,
+  manualEnabled,
   setStatus,
 }: Options) {
   const [focusReticle, setFocusReticle] = useState<FocusReticleState>(null);
@@ -46,7 +49,8 @@ export function usePreviewInteraction({
 
   const focusAtPoint = useCallback(
     async (locationX: number, locationY: number, lock: boolean) => {
-      if (!canPreviewInteract({ manualEnabled, countdown, isCapturing })) return;
+      if (!canPreviewInteract({ countdown, isCapturing })) return;
+      if (manualEnabled) onTapFocusWhileManual?.();
       setFocusReticle({ x: locationX, y: locationY, locked: lock });
       setAeAfLocked(lock);
       if (lock) {
@@ -62,7 +66,14 @@ export function usePreviewInteraction({
         setStatus(errorMessage(error, lock ? 'Lock failed' : 'Focus failed'));
       }
     },
-    [cameraRef, countdown, isCapturing, manualEnabled, setStatus],
+    [
+      cameraRef,
+      countdown,
+      isCapturing,
+      manualEnabled,
+      onTapFocusWhileManual,
+      setStatus,
+    ],
   );
 
   const onPreviewTap = useCallback(

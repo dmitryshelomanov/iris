@@ -17,18 +17,76 @@ async function safeResetFocus(controller: CameraController): Promise<void> {
   }
 }
 
+async function safeCall(label: string, fn: () => Promise<void>, errors: string[]): Promise<void> {
+  try {
+    await fn();
+  } catch (error) {
+    if (isCameraControlCanceled(error)) return;
+    errors.push(`${label}: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
+/**
+ * Ease UI focus toward macro so distant scenes soften earlier on large-DOF phone lenses.
+ * UI 0 = far/infinity, 1 = near/macro. Exponent < 1 → mid dial already leans near.
+ */
+const FOCUS_UI_GAMMA = 0.55;
+
+function uiFocusShape(uiFocus: number): number {
+  return Math.pow(clamp(uiFocus, 0, 1), FOCUS_UI_GAMMA);
+}
+
+/**
+ * UI Focus dial → VisionCamera lensPosition.
+ * VisionCamera: 0 = closest, 1 = furthest (opposite of UI).
+ */
+export function uiFocusToLens(uiFocus: number): number {
+  return clamp(1 - uiFocusShape(uiFocus), 0, 1);
+}
+
+export function lensToUiFocus(lens: number): number {
+  const shaped = clamp(1 - lens, 0, 1);
+  return clamp(Math.pow(shaped, 1 / FOCUS_UI_GAMMA), 0, 1);
+}
+
+export type ApplyManualOptions = {
+  lockWhiteBalance: boolean;
+  /** When Focus dial moved — fail loudly if lens lock unavailable. */
+  requireFocusLock?: boolean;
+  /** When ISO/SS dial moved — fail loudly if exposure lock unavailable. */
+  requireExposureLock?: boolean;
+  /** Tap-to-focus temporarily owns AF — do not re-lock lens position. */
+  skipFocusLock?: boolean;
+};
+
 /**
  * Push Pro / look dials into VisionCamera's CameraController.
  * Manual on → lock ISO/shutter/focus/WB. Manual off → reset 3A, keep EV (+ optional WB for looks).
+ *
+ * Each lock is independent — exposure failure must not skip focus (live AF dial).
  */
 export async function applyManualToController(
   controller: CameraController,
   state: ManualControlsState,
-  options: { lockWhiteBalance: boolean },
+  options: ApplyManualOptions,
 ): Promise<void> {
   const device = controller.device;
+  const errors: string[] = [];
 
   if (state.enabled) {
+    // Focus first so the dial updates the live preview immediately.
+    if (options.skipFocusLock) {
+      // Tap-to-focus / AE-AF owns the lens — leave AF alone (keep ISO/SS/WB locks).
+    } else if (device.supportsFocusLocking) {
+      await safeCall(
+        'Focus',
+        () => controller.setFocusLocked(uiFocusToLens(state.focus)),
+        errors,
+      );
+    } else if (options.requireFocusLock) {
+      errors.push('Manual focus not supported on this lens');
+    }
+
     if (device.supportsExposureLocking) {
       const duration = clamp(
         state.shutter,
@@ -36,15 +94,18 @@ export async function applyManualToController(
         controller.maxExposureDuration || state.shutter,
       );
       const iso = clamp(state.iso, controller.minISO || state.iso, controller.maxISO || state.iso);
-      await controller.setExposureLocked(duration, iso);
+      await safeCall('Exposure', () => controller.setExposureLocked(duration, iso), errors);
+    } else if (options.requireExposureLock) {
+      errors.push('Manual ISO / shutter not supported on this lens');
     } else if (device.supportsExposureBias) {
-      await controller.setExposureBias(
-        clamp(state.ev, device.minExposureBias, device.maxExposureBias),
+      await safeCall(
+        'EV',
+        () =>
+          controller.setExposureBias(
+            clamp(state.ev, device.minExposureBias, device.maxExposureBias),
+          ),
+        errors,
       );
-    }
-
-    if (device.supportsFocusLocking) {
-      await controller.setFocusLocked(clamp(state.focus, 0, 1));
     }
 
     if (device.supportsWhiteBalanceLocking) {
@@ -52,7 +113,11 @@ export async function applyManualToController(
         temperature: clamp(state.wbKelvin, 2500, 8000),
         tint: clamp(state.wbTint, -150, 150),
       });
-      await controller.setWhiteBalanceLocked(gains);
+      await safeCall('WB', () => controller.setWhiteBalanceLocked(gains), errors);
+    }
+
+    if (errors.length > 0) {
+      throw new Error(errors.join(' · '));
     }
     return;
   }
@@ -61,8 +126,11 @@ export async function applyManualToController(
   await safeResetFocus(controller);
 
   if (device.supportsExposureBias) {
-    await controller.setExposureBias(
-      clamp(state.ev, device.minExposureBias, device.maxExposureBias),
+    await safeCall(
+      'EV',
+      () =>
+        controller.setExposureBias(clamp(state.ev, device.minExposureBias, device.maxExposureBias)),
+      errors,
     );
   }
 
@@ -71,10 +139,12 @@ export async function applyManualToController(
       temperature: clamp(state.wbKelvin, 2500, 8000),
       tint: clamp(state.wbTint, -150, 150),
     });
-    await controller.setWhiteBalanceLocked(gains);
+    await safeCall('WB', () => controller.setWhiteBalanceLocked(gains), errors);
   }
-  // When lockWhiteBalance is false, leave continuous AWB after resetFocus —
-  // do not re-lock previous look gains.
+
+  if (errors.length > 0) {
+    throw new Error(errors.join(' · '));
+  }
 }
 
 export function seedManualFromController(
@@ -83,7 +153,9 @@ export function seedManualFromController(
 ): ManualControlsState {
   const iso = controller.iso > 0 ? controller.iso : previous.iso;
   const shutter = controller.exposureDuration > 0 ? controller.exposureDuration : previous.shutter;
-  const focus = controller.lensPosition > 0 ? controller.lensPosition : previous.focus;
+  // 0.0 is a valid lens position (closest) — don't treat it as "unset".
+  const lens = controller.lensPosition;
+  const focus = Number.isFinite(lens) ? lensToUiFocus(lens) : previous.focus;
   return {
     ...previous,
     enabled: true,

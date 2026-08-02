@@ -10,6 +10,7 @@ import {
 import {
   buildCapabilities,
   buildLensCatalog,
+  pickManualFocusLens,
   resolutionForAspect,
   resolvePreviewStabilizationMode,
   resolveVideoFps,
@@ -150,8 +151,10 @@ export function useCameraSession({
       .catch(() => {});
   }, [photoOutput]);
 
-  const onSelectLens = useCallback(
-    (lens: LensOption) => {
+  const lensIdBeforeManualRef = useRef<LensId | null>(null);
+
+  const selectLens = useCallback(
+    (lens: LensOption, options?: { silent?: boolean }) => {
       if (lens.id === activeLensId) return;
       const deviceChanged = lens.device.id !== activeLens?.device.id;
       if (deviceChanged) {
@@ -162,18 +165,46 @@ export function useCameraSession({
       if (settings.torchOn && lens.position === 'front') {
         patchSettings({ torchOn: false });
       }
-      setStatus(lens.isNative ? lens.label : `${lens.label} · ${lens.hint}`);
+      if (!options?.silent) {
+        setStatus(lens.isNative ? lens.label : `${lens.label} · ${lens.hint}`);
+      }
     },
     [activeLens?.device.id, activeLensId, patchSettings, setStatus, setZoom, settings.torchOn],
   );
 
+  /** Switch to a physical lens that can lock focus (Pro dial). */
+  const ensureManualFocusLens = useCallback((): 'ready' | 'switched' | 'unavailable' => {
+    if (device?.supportsFocusLocking) return 'ready';
+    const next = pickManualFocusLens(lenses);
+    if (!next) return 'unavailable';
+    if (activeLensId && lensIdBeforeManualRef.current == null) {
+      lensIdBeforeManualRef.current = activeLensId;
+    }
+    selectLens(next, { silent: true });
+    return 'switched';
+  }, [activeLensId, device?.supportsFocusLocking, lenses, selectLens]);
+
+  /** Restore Multi / previous lens after leaving Pro manual. */
+  const restoreLensAfterManual = useCallback(() => {
+    const prevId = lensIdBeforeManualRef.current;
+    lensIdBeforeManualRef.current = null;
+    if (prevId == null || prevId === activeLensId) return;
+    const prev = lenses.find((l) => l.id === prevId);
+    // Never restore across front/back after a flip.
+    if (prev && prev.position === activeLens?.position) {
+      selectLens(prev, { silent: true });
+    }
+  }, [activeLens?.position, activeLensId, lenses, selectLens]);
+
   const onFlip = useCallback(() => {
+    // Invalidate Pro→Multi restore — saved lens belongs to the other side.
+    lensIdBeforeManualRef.current = null;
     if (lenses.length === 0) return;
     const current = activeLens;
     const targetPosition = current?.position === 'front' ? 'back' : 'front';
     const next = pickFlipTarget(lenses, targetPosition);
-    if (next) onSelectLens(next);
-  }, [activeLens, lenses, onSelectLens]);
+    if (next) selectLens(next);
+  }, [activeLens, lenses, selectLens]);
 
   useEffect(() => {
     if (lenses.length === 0) return;
@@ -216,7 +247,9 @@ export function useCameraSession({
     controllerReady,
     setControllerReady,
     onSessionConfigured,
-    onSelectLens,
+    onSelectLens: selectLens,
+    ensureManualFocusLens,
+    restoreLensAfterManual,
     onFlip,
   };
 }

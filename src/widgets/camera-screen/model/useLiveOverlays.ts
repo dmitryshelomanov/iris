@@ -2,6 +2,7 @@ import { useEffect, useState, type RefObject } from 'react';
 import type { CameraRef } from 'react-native-vision-camera';
 
 import {
+  lensToUiFocus,
   peakingIntensity,
   type CaptureSettings,
   type ManualControlsState,
@@ -19,11 +20,10 @@ type Options = {
 
 function readLiveFocus(cameraRef: RefObject<CameraRef | null>, manual: ManualControlsState) {
   const controller = cameraRef.current?.controller;
-  return manual.enabled
-    ? manual.focus
-    : controller && controller.lensPosition > 0
-      ? controller.lensPosition
-      : manual.focus;
+  if (manual.enabled) return manual.focus;
+  const lens = controller?.lensPosition;
+  if (controller && Number.isFinite(lens)) return lensToUiFocus(lens as number);
+  return manual.focus;
 }
 
 /** Telemetry-only assist overlays (no frame-processor / VideoDataOutput). */
