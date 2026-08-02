@@ -16,10 +16,15 @@ import {
   type LookPresetId,
 } from '@/features/camera';
 
+import type { GrainOverlayPatch } from './grainOverlayPatch';
+
+export type { GrainOverlayPatch } from './grainOverlayPatch';
+
 export type RebakeLookOptions = {
   lookId: LookPresetId;
   lookStrength: number;
   jpegQuality?: number;
+  overlayPatch?: GrainOverlayPatch;
 };
 
 /**
@@ -43,6 +48,9 @@ export async function rebakeLook(
 
   const look = getLookPreset(lookId);
   const bakeStrength = bakeStrengthForLook(look, options.lookStrength);
+  const overlay = options.overlayPatch
+    ? { ...look.overlay, ...options.overlayPatch }
+    : look.overlay;
 
   if (entry.kind === 'photo') {
     const {
@@ -53,6 +61,7 @@ export async function rebakeLook(
       lookId,
       lookStrength: options.lookStrength,
       jpegQuality: options.jpegQuality,
+      overlayPatch: options.overlayPatch,
     });
     const asset = await savePhotoToLibrary(baked.uri);
     const nextList = await pushRecent({
@@ -62,6 +71,7 @@ export async function rebakeLook(
       kind: 'photo',
       lookId: resolvedLookId,
       lookStrength: resolvedStrength,
+      overlayPatch: options.overlayPatch,
       histogram: baked.histogram,
       meta: entry.meta,
     });
@@ -74,7 +84,7 @@ export async function rebakeLook(
     if (isAnimeMlLook(look)) {
       throw new Error('Anime ML is photo only');
     }
-    const baked = await bakeLookIntoVideo(entry.rawUri, look.overlay, {
+    const baked = await bakeLookIntoVideo(entry.rawUri, overlay, {
       strength: bakeStrength,
     });
     if (lookId !== 'none' && !baked.baked) {
@@ -88,6 +98,7 @@ export async function rebakeLook(
       kind: 'video',
       lookId,
       lookStrength: bakeStrength,
+      overlayPatch: options.overlayPatch,
       meta: entry.meta,
     });
     const created = nextList[0];

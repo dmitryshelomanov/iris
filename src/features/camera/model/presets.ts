@@ -26,8 +26,14 @@ export type LookOverlay = {
   vignette: number;
   /** Desaturate toward mono 0…1 */
   mono: number;
-  /** Film grain 0…1 */
+  /** Film grain amount / opacity 0…1 */
   grain: number;
+  /** Grain particle size 0…1 (maps to noise frequency) */
+  grainSize: number;
+  /** Soft ↔ punchy grain blend 0…1 */
+  grainTexture: number;
+  /** Soft diffusion of the whole frame 0…1 (UI: Diffusion). Also softens grain layers when grain > 0. */
+  grainBlur: number;
   /** Soft flash highlight bloom 0…1 */
   bloom: number;
   /** Warm corner light leak 0…1 */
@@ -70,6 +76,9 @@ const CLEAN: LookOverlay = {
   vignette: 0,
   mono: 0,
   grain: 0,
+  grainSize: 0.45,
+  grainTexture: 0.5,
+  grainBlur: 0,
   bloom: 0,
   leak: 0,
   stamp: 0,
@@ -105,6 +114,9 @@ export const LOOK_PRESETS: LookPreset[] = [
       vignette: 0.3,
       mono: 0,
       grain: 0.3,
+      grainSize: 0.3,
+      grainTexture: 0.5,
+      grainBlur: 0,
       bloom: 0,
       leak: 0,
       stamp: 0,
@@ -132,6 +144,9 @@ export const LOOK_PRESETS: LookPreset[] = [
       vignette: 0.34,
       mono: 0,
       grain: 0.34,
+      grainSize: 0.34,
+      grainTexture: 0.5,
+      grainBlur: 0,
       bloom: 0,
       leak: 0,
       stamp: 0,
@@ -159,6 +174,9 @@ export const LOOK_PRESETS: LookPreset[] = [
       vignette: 0.18,
       mono: 0,
       grain: 0.18,
+      grainSize: 0.18,
+      grainTexture: 0.5,
+      grainBlur: 0,
       bloom: 0,
       leak: 0,
       stamp: 0,
@@ -186,6 +204,9 @@ export const LOOK_PRESETS: LookPreset[] = [
       vignette: 0.26,
       mono: 0,
       grain: 0.36,
+      grainSize: 0.36,
+      grainTexture: 0.5,
+      grainBlur: 0,
       bloom: 0,
       leak: 0,
       stamp: 0,
@@ -213,6 +234,9 @@ export const LOOK_PRESETS: LookPreset[] = [
       vignette: 0.22,
       mono: 0,
       grain: 0.28,
+      grainSize: 0.28,
+      grainTexture: 0.5,
+      grainBlur: 0,
       bloom: 0,
       leak: 0,
       stamp: 0,
@@ -240,6 +264,9 @@ export const LOOK_PRESETS: LookPreset[] = [
       vignette: 0.32,
       mono: 0,
       grain: 0.38,
+      grainSize: 0.38,
+      grainTexture: 0.5,
+      grainBlur: 0,
       bloom: 0,
       leak: 0,
       stamp: 0,
@@ -267,6 +294,9 @@ export const LOOK_PRESETS: LookPreset[] = [
       vignette: 0.48,
       mono: 1,
       grain: 0.52,
+      grainSize: 0.52,
+      grainTexture: 0.5,
+      grainBlur: 0,
       bloom: 0,
       leak: 0,
       stamp: 0,
@@ -294,6 +324,9 @@ export const LOOK_PRESETS: LookPreset[] = [
       vignette: 0.38,
       mono: 0.06,
       grain: 0.42,
+      grainSize: 0.42,
+      grainTexture: 0.5,
+      grainBlur: 0,
       bloom: 0,
       leak: 0.1,
       stamp: 0,
@@ -321,6 +354,9 @@ export const LOOK_PRESETS: LookPreset[] = [
       vignette: 0.44,
       mono: 0.05,
       grain: 0.4,
+      grainSize: 0.4,
+      grainTexture: 0.5,
+      grainBlur: 0,
       bloom: 0,
       leak: 0,
       stamp: 0,
@@ -348,6 +384,9 @@ export const LOOK_PRESETS: LookPreset[] = [
       vignette: 0.46,
       mono: 1,
       grain: 0.62,
+      grainSize: 0.62,
+      grainTexture: 0.5,
+      grainBlur: 0,
       bloom: 0,
       leak: 0,
       stamp: 0,
@@ -388,6 +427,9 @@ export const LOOK_PRESETS: LookPreset[] = [
       color: '#1A1A1A',
       opacity: 0.06,
       grain: 0.12,
+      grainSize: 0.12,
+      grainTexture: 0.5,
+      grainBlur: 0,
       leak: 0.12,
       stamp: 0.55,
       smooth: 0.25,

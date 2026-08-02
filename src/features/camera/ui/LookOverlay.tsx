@@ -28,6 +28,7 @@ function isActive(overlay: LookOverlayConfig) {
     overlay.vignette > 0 ||
     overlay.mono > 0 ||
     overlay.grain > 0 ||
+    overlay.grainBlur > 0.02 ||
     overlay.bloom > 0 ||
     overlay.leak > 0 ||
     overlay.stamp > 0 ||
@@ -64,6 +65,9 @@ export function LookOverlay({ overlay, strength = 1, animeMl = false }: Props) {
   const vignette = overlay.vignette * strength;
   const mono = overlay.mono * strength;
   const grain = overlay.grain * strength;
+  const grainSize = overlay.grainSize;
+  const grainTexture = overlay.grainTexture;
+  const grainBlur = overlay.grainBlur;
   const bloom = overlay.bloom * strength;
   const leak = overlay.leak * strength;
   const stamp = overlay.stamp * strength;
@@ -101,6 +105,18 @@ export function LookOverlay({ overlay, strength = 1, animeMl = false }: Props) {
             {
               backgroundColor: '#C8C0B4',
               opacity: soft * 0.3 + lift * 1.1,
+            },
+          ]}
+        />
+      ) : null}
+      {/* Soft diffusion stand-in until Skia live bake lands */}
+      {grainBlur > 0.04 ? (
+        <View
+          style={[
+            StyleSheet.absoluteFill,
+            {
+              backgroundColor: '#B8B4AE',
+              opacity: Math.min(0.28, grainBlur * 0.22 * strength),
             },
           ]}
         />
@@ -264,15 +280,21 @@ export function LookOverlay({ overlay, strength = 1, animeMl = false }: Props) {
           {Array.from({ length: 520 }).map((_, i) => {
             const x = ((i * 67) % 97) + 1.5;
             const y = ((i * 41) % 97) + 1.5;
-            const punch = i % 3 === 0;
+            const punch = grainTexture > 0.35 && i % 3 === 0;
+            const rBase = 0.12 + grainSize * 0.28;
+            const opacityScale = 1 - grainBlur * 0.45;
             return (
               <Circle
                 key={i}
                 cx={`${x}%`}
                 cy={`${y}%`}
-                r={0.18 + (i % 4) * 0.09}
+                r={rBase + (i % 4) * (0.05 + grainSize * 0.08)}
                 fill={punch ? '#E8E4DC' : '#2A2824'}
-                opacity={grain * (punch ? 0.14 + (i % 5) * 0.03 : 0.1 + (i % 5) * 0.025)}
+                opacity={
+                  grain *
+                  opacityScale *
+                  (punch ? 0.14 + (i % 5) * 0.03 : 0.1 + (i % 5) * 0.025)
+                }
               />
             );
           })}

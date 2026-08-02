@@ -27,6 +27,13 @@ export type RecentCapture = {
   createdAt: number;
   lookId?: string;
   lookStrength?: number;
+  /** Custom grain / diffusion dials from last bake (hydrates LookBakeSheet). */
+  overlayPatch?: {
+    grain?: number;
+    grainSize?: number;
+    grainTexture?: number;
+    grainBlur?: number;
+  };
   histogram?: number[];
   favorite?: boolean;
   meta?: CaptureMeta;
@@ -43,6 +50,7 @@ function normalizeEntry(raw: Partial<RecentCapture> & { uri?: string }): RecentC
     createdAt: typeof raw.createdAt === 'number' ? raw.createdAt : Date.now(),
     lookId: raw.lookId,
     lookStrength: raw.lookStrength,
+    overlayPatch: raw.overlayPatch,
     histogram: raw.histogram,
     favorite: raw.favorite,
     meta: raw.meta,

@@ -3,6 +3,7 @@ import {
   bakeStrengthForLook,
   getLookPreset,
   resolveLookPresetId,
+  type LookOverlay,
   type LookPreset,
 } from './presets';
 import type { LookPresetId } from './types';
@@ -11,6 +12,8 @@ export type BakePhotoWithLookOptions = {
   lookId: LookPresetId | string;
   lookStrength: number;
   jpegQuality?: number;
+  /** Patch overlay fields (e.g. grain params) on top of the preset before bake. */
+  overlayPatch?: Partial<LookOverlay>;
 };
 
 export type BakePhotoWithLookResult = {
@@ -35,7 +38,10 @@ export async function bakePhotoWithLook(
 
   const look = getLookPreset(lookId);
   const bakeStrength = bakeStrengthForLook(look, options.lookStrength);
-  const baked = await bakeLookIntoPhoto(masterUri, look.overlay, {
+  const overlay = options.overlayPatch
+    ? { ...look.overlay, ...options.overlayPatch }
+    : look.overlay;
+  const baked = await bakeLookIntoPhoto(masterUri, overlay, {
     strength: bakeStrength,
     jpegQuality: options.jpegQuality ?? 0.95,
     mlStyle: look.mlStyle ?? null,

@@ -1,7 +1,12 @@
 export { RecentsProvider, useRecents } from './model/RecentsContext';
 export { rebakeLook } from './model/rebakeLook';
+export type { GrainOverlayPatch, RebakeLookOptions } from './model/rebakeLook';
 export { pickLibraryPhoto, bakeImportedPhoto } from './model/importPhotoBake';
 export type { ImportPhotoBakeOptions, ImportedPhotoCapture } from './model/importPhotoBake';
 export { ReviewModal } from './ui/ReviewModal';
 export { LookBakeSheet } from './ui/LookBakeSheet';
+export { LookParamControls } from './ui/LookParamControls';
+export type { LookParamId, LookParamValues } from './ui/LookParamControls';
 export { LastShotButton } from './ui/LastShotButton';
+export { useLiveLookPreview } from './model/useLiveLookPreview';
+export { useLookBakeDraft, paramsFromLook, grainPatchFromParams } from './model/useLookBakeDraft';

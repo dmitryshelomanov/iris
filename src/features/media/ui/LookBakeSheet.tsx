@@ -1,24 +1,29 @@
 import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native';
+import { useMemo } from 'react';
 
 import {
   LOOK_PRESETS,
-  LookStrengthSlider,
+  getLookPreset,
   isAnimeMlLook,
   type LookPresetId,
 } from '@/features/camera';
 import { Text } from '@/shared/ui/text';
 import { cn } from '@/shared/lib/utils';
 
+import { LookParamControls, type LookParamId, type LookParamValues } from './LookParamControls';
+
 type Props = {
   title?: string;
   lookId: LookPresetId;
-  strength: number;
+  params: LookParamValues;
+  activeParam: LookParamId;
   busy: boolean;
   error: string | null;
   mediaKind: 'photo' | 'video';
   applyLabel?: string;
   onLookChange: (id: LookPresetId) => void;
-  onStrengthChange: (v: number) => void;
+  onParamsChange: (next: LookParamValues) => void;
+  onActiveParamChange: (id: LookParamId) => void;
   onApply: () => void;
   onClose: () => void;
 };
@@ -26,17 +31,30 @@ type Props = {
 export function LookBakeSheet({
   title = 'Bake look',
   lookId,
-  strength,
+  params,
+  activeParam,
   busy,
   error,
   mediaKind,
   applyLabel = 'Apply look',
   onLookChange,
-  onStrengthChange,
+  onParamsChange,
+  onActiveParamChange,
   onApply,
   onClose,
 }: Props) {
   const videoBlocksMl = mediaKind === 'video';
+  const paramDefaults = useMemo((): LookParamValues => {
+    const overlay = getLookPreset(lookId).overlay;
+    return {
+      strength: 1,
+      grain: overlay.grain,
+      grainSize: overlay.grainSize,
+      grainTexture: overlay.grainTexture,
+      grainBlur: overlay.grainBlur,
+    };
+  }, [lookId]);
+
   return (
     <View className="border-t border-white/10 bg-zinc-950 px-3 pb-3 pt-2">
       <View className="mb-2 flex-row items-center justify-between">
@@ -82,12 +100,18 @@ export function LookBakeSheet({
         })}
       </ScrollView>
       {videoBlocksMl ? (
-        <Text className="mt-1 text-[10px] font-medium text-white/45">
+        <Text className="mb-1 text-[10px] font-medium text-white/45">
           Anime ML is photo only — not available for video
         </Text>
-      ) : (
-        <LookStrengthSlider value={strength} onChange={onStrengthChange} disabled={busy} />
-      )}
+      ) : null}
+      <LookParamControls
+        values={params}
+        activeId={activeParam}
+        defaults={paramDefaults}
+        disabled={busy}
+        onActiveChange={onActiveParamChange}
+        onChange={onParamsChange}
+      />
       {error ? <Text className="mt-2 text-center text-[11px] text-red-300">{error}</Text> : null}
       <Pressable
         onPress={onApply}

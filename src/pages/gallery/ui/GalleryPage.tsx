@@ -16,17 +16,19 @@ import { ArrowLeft, Check, Heart } from 'lucide-react-native';
 import { toggleFavoriteRecent } from '@/entities/capture';
 import {
   BakeOverlay,
+  LookOverlay,
   getLookPreset,
   isAnimeMlLook,
   resolveLookPresetId,
   useCaptureSettings,
-  type LookPresetId,
 } from '@/features/camera';
 import {
   LookBakeSheet,
   ReviewModal,
   bakeImportedPhoto,
   pickLibraryPhoto,
+  useLiveLookPreview,
+  useLookBakeDraft,
   useRecents,
 } from '@/features/media';
 import { Icon } from '@/shared/ui/icon';
@@ -49,10 +51,19 @@ export function GalleryPage() {
   const [selecting, setSelecting] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
   const [importUri, setImportUri] = useState<string | null>(null);
-  const [draftLookId, setDraftLookId] = useState<LookPresetId>('none');
-  const [draftStrength, setDraftStrength] = useState(1);
+  const draft = useLookBakeDraft();
   const [importBusy, setImportBusy] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
+
+  const animeMlDraft = isAnimeMlLook(draft.lookId);
+  const { previewUri: importPreviewUri, pending: importPreviewPending, gradeOnly } = useLiveLookPreview({
+    enabled: importUri != null,
+    masterUri: importUri,
+    overlay: draft.draftOverlay,
+    strength: draft.params.strength,
+    animeMl: animeMlDraft,
+    cacheKey: 'import-live',
+  });
 
   const lookIds = useMemo(() => {
     const ids = new Set<string>();
@@ -157,13 +168,12 @@ export function GalleryPage() {
       const uri = await pickLibraryPhoto();
       if (!uri) return;
       const lookId = resolveLookPresetId(settings.lookId) ?? 'none';
-      setDraftLookId(lookId);
-      setDraftStrength(settings.lookStrength);
+      draft.openSheet(lookId, settings.lookStrength);
       setImportUri(uri);
     } catch (error) {
       Alert.alert('Import failed', errorMessage(error, 'Could not open Photos'));
     }
-  }, [settings.lookId, settings.lookStrength]);
+  }, [draft.openSheet, settings.lookId, settings.lookStrength]);
 
   const applyImportBake = useCallback(async () => {
     if (!importUri) return;
@@ -171,9 +181,10 @@ export function GalleryPage() {
     setImportError(null);
     try {
       const entry = await bakeImportedPhoto(importUri, {
-        lookId: draftLookId,
-        lookStrength: draftStrength,
+        lookId: draft.lookId,
+        lookStrength: draft.params.strength,
         jpegQuality: settings.jpegQuality,
+        overlayPatch: draft.grainPatch,
       });
       await addCapture(entry);
       setImportUri(null);
@@ -185,7 +196,7 @@ export function GalleryPage() {
     } finally {
       setImportBusy(false);
     }
-  }, [addCapture, draftLookId, draftStrength, importUri, settings.jpegQuality]);
+  }, [addCapture, draft.grainPatch, draft.lookId, draft.params.strength, importUri, settings.jpegQuality]);
 
   return (
     <View className="flex-1 bg-black" style={{ paddingTop: insets.top }}>
@@ -477,12 +488,33 @@ export function GalleryPage() {
             <View className="w-9" />
           </View>
           {importUri ? (
-            <View className="flex-1">
-              <Image source={{ uri: importUri }} className="flex-1" resizeMode="contain" />
+            <View className="flex-1 overflow-hidden">
+              <Image
+                key={importPreviewUri ?? importUri}
+                source={{ uri: importPreviewUri ?? importUri }}
+                className="flex-1"
+                resizeMode="contain"
+              />
+              {!importPreviewUri || gradeOnly ? (
+                <LookOverlay
+                  overlay={draft.draftOverlay}
+                  strength={draft.params.strength}
+                  animeMl={animeMlDraft}
+                />
+              ) : null}
+              {gradeOnly ? (
+                <View className="absolute right-3 top-3 rounded-full bg-black/55 px-2.5 py-1">
+                  <Text className="text-[10px] font-semibold text-amber-300">Grade only</Text>
+                </View>
+              ) : importPreviewPending ? (
+                <View className="absolute right-3 top-3 rounded-full bg-black/55 px-2.5 py-1">
+                  <Text className="text-[10px] font-semibold text-amber-300">Preview…</Text>
+                </View>
+              ) : null}
               <BakeOverlay
                 label={
                   importBusy
-                    ? isAnimeMlLook(draftLookId)
+                    ? animeMlDraft
                       ? 'Anime stylizing…'
                       : 'Applying look…'
                     : null
@@ -492,14 +524,16 @@ export function GalleryPage() {
           ) : null}
           <LookBakeSheet
             title="Bake look"
-            lookId={draftLookId}
-            strength={draftStrength}
+            lookId={draft.lookId}
+            params={draft.params}
+            activeParam={draft.activeParam}
             busy={importBusy}
             error={importError}
             mediaKind="photo"
             applyLabel="Bake look"
-            onLookChange={setDraftLookId}
-            onStrengthChange={setDraftStrength}
+            onLookChange={draft.onLookChange}
+            onParamsChange={draft.setParams}
+            onActiveParamChange={draft.setActiveParam}
             onApply={applyImportBake}
             onClose={closeImportSheet}
           />

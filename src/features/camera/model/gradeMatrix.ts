@@ -93,6 +93,8 @@ export function needsLookBake(overlay: LookOverlay, strength: number) {
     overlay.vignette > 0 ||
     overlay.mono > 0 ||
     overlay.grain > 0 ||
+    // Soft diffusion of the frame (independent of grain amount).
+    overlay.grainBlur > 0.01 ||
     overlay.bloom > 0 ||
     overlay.leak > 0 ||
     overlay.stamp > 0 ||

@@ -9,7 +9,9 @@ import { Heart, X } from 'lucide-react-native';
 import { fileUriExists, type RecentCapture } from '@/entities/capture';
 import {
   BakeOverlay,
+  LookOverlay,
   cancelBakeLookIntoVideo,
+  formatShutter,
   getLookPreset,
   isAnimeMlLook,
   resolveLookPresetId,
@@ -22,6 +24,8 @@ import { errorMessage } from '@/shared/lib/errorMessage';
 import { cn } from '@/shared/lib/utils';
 
 import { rebakeLook } from '../model/rebakeLook';
+import { useLiveLookPreview } from '../model/useLiveLookPreview';
+import { useLookBakeDraft } from '../model/useLookBakeDraft';
 import { useRecents } from '../model/RecentsContext';
 import { LookBakeSheet } from './LookBakeSheet';
 
@@ -37,13 +41,6 @@ type Props = {
   /** When true, open in quick post-capture mode with a primary “Shoot again” action. */
   postCapture?: boolean;
 };
-
-function formatShutter(seconds: number): string {
-  if (seconds <= 0) return '—';
-  if (seconds >= 1) return `${Number(seconds.toFixed(1))}s`;
-  const denom = Math.max(1, Math.round(1 / seconds));
-  return `1/${denom}`;
-}
 
 function formatEv(ev: number): string {
   if (Math.abs(ev) < 0.05) return '±0 EV';
@@ -178,8 +175,7 @@ export function ReviewModal({
   const [index, setIndex] = useState(initialIndex);
   const [compare, setCompare] = useState(false);
   const [lookSheet, setLookSheet] = useState(false);
-  const [draftLookId, setDraftLookId] = useState<LookPresetId>('none');
-  const [draftStrength, setDraftStrength] = useState(1);
+  const draft = useLookBakeDraft();
   const [rebaking, setRebaking] = useState(false);
   const [rebakeError, setRebakeError] = useState<string | null>(null);
 
@@ -213,11 +209,25 @@ export function ReviewModal({
   const canRebake = !!current?.rawUri && masterExists;
 
   useEffect(() => {
-    if (!current || rebaking) return;
+    // Don't clobber in-progress dials while the look sheet is open (e.g. after Apply).
+    if (!current || rebaking || lookSheet) return;
     const id = resolveLookPresetId(current.lookId) ?? 'none';
-    setDraftLookId(id);
-    setDraftStrength(current.lookStrength ?? 1);
-  }, [current?.id, current?.lookId, current?.lookStrength, rebaking]);
+    const strength = current.lookStrength ?? 1;
+    draft.syncFromCapture(id, strength, current.overlayPatch);
+  }, [current?.id, current?.lookId, current?.lookStrength, current?.overlayPatch, rebaking, lookSheet, draft.syncFromCapture]);
+
+  const liveLookPreview =
+    lookSheet && canRebake && current?.kind === 'photo' && !!current.rawUri && masterExists;
+  const animeMlDraft = isAnimeMlLook(draft.lookId);
+
+  const { previewUri: livePreviewUri, pending: livePreviewPending, gradeOnly } = useLiveLookPreview({
+    enabled: !!liveLookPreview,
+    masterUri: liveLookPreview ? current?.rawUri : null,
+    overlay: draft.draftOverlay,
+    strength: draft.params.strength,
+    animeMl: animeMlDraft,
+    cacheKey: 'review-live',
+  });
 
   const share = async () => {
     if (!current) return;
@@ -234,26 +244,32 @@ export function ReviewModal({
     if (current.kind === 'video' && isAnimeMlLook(id)) {
       id = 'none';
     }
-    setDraftLookId(id);
-    setDraftStrength(current.lookStrength ?? 1);
+    draft.openSheet(id, current.lookStrength ?? 1, current.overlayPatch);
     setRebakeError(null);
     setLookSheet(true);
   };
 
-  const applyRebakeWith = async (lookId: LookPresetId, lookStrength: number) => {
+  const applyRebakeWith = async (
+    lookId: LookPresetId,
+    lookStrength: number,
+    grainPatch?: typeof draft.grainPatch,
+  ) => {
     if (!current || !canRebake || rebaking) return;
     const recentId = current.id;
     setRebaking(true);
     setRebakeError(null);
     try {
-      await rebakeLook(recentId, { lookId, lookStrength });
+      await rebakeLook(recentId, {
+        lookId,
+        lookStrength,
+        overlayPatch: grainPatch,
+      });
       // Ignore stale completion if the user somehow changed selection mid-bake.
       if (recentId !== (recents[index] ?? recents[0])?.id) return;
       await refresh();
-      // Re-bake prepends a new entry — jump to it; source stays in the list.
+      // Re-bake prepends a new entry — jump to it; keep look sheet open for further tweaks.
       setIndex(0);
       setCompare(false);
-      setLookSheet(false);
     } catch (error) {
       if (recentId !== (recents[index] ?? recents[0])?.id) return;
       setRebakeError(errorMessage(error, 'Re-bake failed'));
@@ -262,7 +278,8 @@ export function ReviewModal({
     }
   };
 
-  const applyRebake = () => applyRebakeWith(draftLookId, draftStrength);
+  const applyRebake = () =>
+    applyRebakeWith(draft.lookId, draft.params.strength, draft.grainPatch);
 
   const quickAnimeRebake = (lookId: LookPresetId) => {
     if (current?.kind !== 'photo') return;
@@ -325,8 +342,33 @@ export function ReviewModal({
         {visible ? (
           <View className="flex-1">
             {current?.kind === 'photo' ? (
-              compare && canCompare && current.rawUri ? (
+              compare && canCompare && current.rawUri && !liveLookPreview ? (
                 <BeforeAfterPhoto bakedUri={current.uri} rawUri={current.rawUri} />
+              ) : liveLookPreview && current.rawUri ? (
+                <View className="flex-1 overflow-hidden">
+                  <Image
+                    key={livePreviewUri ?? `${current.id}-master`}
+                    source={{ uri: livePreviewUri ?? current.rawUri }}
+                    className="flex-1"
+                    resizeMode="contain"
+                  />
+                  {!livePreviewUri || gradeOnly ? (
+                    <LookOverlay
+                      overlay={draft.draftOverlay}
+                      strength={draft.params.strength}
+                      animeMl={animeMlDraft}
+                    />
+                  ) : null}
+                  {gradeOnly ? (
+                    <View className="absolute right-3 top-3 rounded-full bg-black/55 px-2.5 py-1">
+                      <Text className="text-[10px] font-semibold text-amber-300">Grade only</Text>
+                    </View>
+                  ) : livePreviewPending ? (
+                    <View className="absolute right-3 top-3 rounded-full bg-black/55 px-2.5 py-1">
+                      <Text className="text-[10px] font-semibold text-amber-300">Preview…</Text>
+                    </View>
+                  ) : null}
+                </View>
               ) : (
                 <Image
                   key={current.id}
@@ -355,7 +397,7 @@ export function ReviewModal({
             <BakeOverlay
               label={
                 rebaking
-                  ? isAnimeMlLook(draftLookId)
+                  ? isAnimeMlLook(draft.lookId)
                     ? 'Anime stylizing…'
                     : 'Applying look…'
                   : null
@@ -412,13 +454,15 @@ export function ReviewModal({
         {lookSheet && canRebake ? (
           <LookBakeSheet
             title="Re-bake look"
-            lookId={draftLookId}
-            strength={draftStrength}
+            lookId={draft.lookId}
+            params={draft.params}
+            activeParam={draft.activeParam}
             busy={rebaking}
             error={rebakeError}
             mediaKind={current.kind === 'video' ? 'video' : 'photo'}
-            onLookChange={setDraftLookId}
-            onStrengthChange={setDraftStrength}
+            onLookChange={draft.onLookChange}
+            onParamsChange={draft.setParams}
+            onActiveParamChange={draft.setActiveParam}
             onApply={applyRebake}
             onClose={() => {
               if (rebaking) return;

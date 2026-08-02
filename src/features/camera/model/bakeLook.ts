@@ -28,6 +28,11 @@ export type BakeLookPhotoOptions = {
   jpegQuality?: number;
   /** When set, run on-device AnimeGANv3 instead of classical toon. */
   mlStyle?: LookMlStyle | null;
+  /**
+   * Write to a stable cache file (overwrite) instead of documents/looks.
+   * Use for ephemeral live previews so we don't fill storage.
+   */
+  previewCacheKey?: string;
 };
 
 function deleteQuietly(path: string) {
@@ -192,30 +197,55 @@ export async function bakeLookIntoPhoto(
       canvas.drawRect(Skia.XYWHRect(0, 0, width, height), paint);
     }
 
+    // Soft frame diffusion — Diffusion dial (works even when grain is 0).
+    const softBlur = Math.min(1, Math.max(0, gradeOverlay.grainBlur)) * strength;
+    if (softBlur > 0.02) {
+      const snapshot = surface.makeImageSnapshot();
+      const sigma = 1.2 + softBlur * Math.min(width, height) * 0.016;
+      const paint = Skia.Paint();
+      paint.setImageFilter(Skia.ImageFilter.MakeBlur(sigma, sigma, TileMode.Clamp));
+      // Blend soft over sharp so low values stay readable and high values go milky.
+      paint.setAlphaf(Math.min(1, 0.28 + softBlur * 0.72));
+      canvas.drawImage(snapshot, 0, 0, paint);
+    }
+
     const grain = gradeOverlay.grain * strength;
     if (grain > 0.01) {
       // Coarser turbulence + Overlay/Multiply — SoftLight alone washes out on phone screens.
+      const size = Math.min(1, Math.max(0, gradeOverlay.grainSize));
+      const texture = Math.min(1, Math.max(0, gradeOverlay.grainTexture));
+      // Grain soften shares the Diffusion dial (lighter than full-frame softBlur).
+      const blurAmt = Math.min(1, Math.max(0, gradeOverlay.grainBlur)) * 0.65;
       const tile = 48;
-      const freq = 0.22 + grain * 0.55;
-      const noise = Skia.Shader.MakeTurbulence(freq, freq, 2, 7, tile, tile);
+      const freq = 0.22 + size * 0.55;
+      const octaves = texture > 0.65 ? 3 : 2;
+      const noise = Skia.Shader.MakeTurbulence(freq, freq, octaves, 7, tile, tile);
 
-      const soft = Skia.Paint();
-      soft.setShader(noise);
-      soft.setAlphaf(Math.min(0.35, 0.1 + grain * 0.35));
-      soft.setBlendMode(BlendMode.SoftLight);
-      canvas.drawRect(Skia.XYWHRect(0, 0, width, height), soft);
+      // Soft ↔ punchy: low texture = SoftLight heavy; high = Overlay/Multiply heavy.
+      const softW = 1 - texture * 0.75;
+      const punchW = 0.35 + texture * 0.65;
+      const speckW = 0.25 + texture * 0.75;
 
-      const punch = Skia.Paint();
-      punch.setShader(noise);
-      punch.setAlphaf(Math.min(0.55, 0.12 + grain * 0.55));
-      punch.setBlendMode(BlendMode.Overlay);
-      canvas.drawRect(Skia.XYWHRect(0, 0, width, height), punch);
+      const drawGrainLayer = (
+        blend: BlendMode,
+        alpha: number,
+        weight: number,
+      ) => {
+        if (alpha * weight < 0.01) return;
+        const paint = Skia.Paint();
+        paint.setShader(noise);
+        paint.setAlphaf(Math.min(0.65, alpha * weight));
+        paint.setBlendMode(blend);
+        if (blurAmt > 0.02) {
+          const sigma = 0.4 + blurAmt * 2.4;
+          paint.setImageFilter(Skia.ImageFilter.MakeBlur(sigma, sigma, TileMode.Clamp));
+        }
+        canvas.drawRect(Skia.XYWHRect(0, 0, width, height), paint);
+      };
 
-      const speck = Skia.Paint();
-      speck.setShader(noise);
-      speck.setAlphaf(Math.min(0.55, 0.1 + grain * 0.55));
-      speck.setBlendMode(BlendMode.Multiply);
-      canvas.drawRect(Skia.XYWHRect(0, 0, width, height), speck);
+      drawGrainLayer(BlendMode.SoftLight, Math.min(0.35, 0.1 + grain * 0.35), softW);
+      drawGrainLayer(BlendMode.Overlay, Math.min(0.55, 0.12 + grain * 0.55), punchW);
+      drawGrainLayer(BlendMode.Multiply, Math.min(0.55, 0.1 + grain * 0.55), speckW);
     }
 
     const bloom = gradeOverlay.bloom * strength;
@@ -286,11 +316,23 @@ export async function bakeLookIntoPhoto(
     }
 
     // Persist under documents — cache can be purged and gallery would show a missing/raw file.
-    const looksDir = new Directory(Paths.document, 'looks');
-    if (!looksDir.exists) {
-      looksDir.create({ intermediates: true, overwrite: false });
-    }
-    const out = new File(looksDir, `iris-look-${Date.now()}.jpg`);
+    // Preview bakes overwrite a single cache file to avoid filling looks/.
+    const out = options.previewCacheKey
+      ? (() => {
+          const cacheDir = new Directory(Paths.cache, 'look-preview');
+          if (!cacheDir.exists) {
+            cacheDir.create({ intermediates: true, overwrite: false });
+          }
+          const safe = options.previewCacheKey.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 48);
+          return new File(cacheDir, `${safe || 'live'}.jpg`);
+        })()
+      : (() => {
+          const looksDir = new Directory(Paths.document, 'looks');
+          if (!looksDir.exists) {
+            looksDir.create({ intermediates: true, overwrite: false });
+          }
+          return new File(looksDir, `iris-look-${Date.now()}.jpg`);
+        })();
     out.create({ overwrite: true });
     // Copy into a plain ArrayBuffer-backed view so native write gets contiguous JPEG bytes.
     const jpegBytes = new Uint8Array(encoded);
@@ -302,7 +344,8 @@ export async function bakeLookIntoPhoto(
 
     return {
       path: toPath(out.uri),
-      uri: out.uri,
+      // Bust Image cache when overwriting the same preview path.
+      uri: options.previewCacheKey ? `${out.uri}?t=${Date.now()}` : out.uri,
       histogram,
     };
   } finally {

@@ -3,10 +3,13 @@ import * as ImagePicker from 'expo-image-picker';
 import { persistPhotoMaster, savePhotoToLibrary, type RecentCapture } from '@/entities/capture';
 import { bakePhotoWithLook, type LookPresetId } from '@/features/camera';
 
+import type { GrainOverlayPatch } from './grainOverlayPatch';
+
 export type ImportPhotoBakeOptions = {
   lookId: LookPresetId;
   lookStrength: number;
   jpegQuality?: number;
+  overlayPatch?: GrainOverlayPatch;
 };
 
 export type ImportedPhotoCapture = Omit<RecentCapture, 'id' | 'createdAt'> & { id: string };
@@ -44,6 +47,7 @@ export async function bakeImportedPhoto(
     lookId: options.lookId,
     lookStrength: options.lookStrength,
     jpegQuality: options.jpegQuality,
+    overlayPatch: options.overlayPatch,
   });
   const asset = await savePhotoToLibrary(baked.uri);
 
@@ -55,6 +59,7 @@ export async function bakeImportedPhoto(
     kind: 'photo',
     lookId,
     lookStrength: bakeStrength,
+    overlayPatch: options.overlayPatch,
     histogram: baked.histogram,
     meta: { lensLabel: 'Import' },
   };
