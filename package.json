@@ -1,7 +1,7 @@
 {
   "name": "iris",
   "main": "expo-router/entry",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Pro camera app for iOS and Android — multi-lens switching, manual controls, look baking, and assist overlays.",
   "author": "Dmitry Shelomanov <dmitryshelomanov@mail.ru>",
   "license": "MIT",
