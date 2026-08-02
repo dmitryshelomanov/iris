@@ -144,7 +144,7 @@ export default function HomePage() {
                   <img
                     src={withBasePath(look.src)}
                     alt={look.alt}
-                    width={576}
+                    width={768}
                     height={1024}
                     className="block h-auto w-full"
                     loading="lazy"
@@ -250,8 +250,8 @@ function DeviceFrame({
         <img
           src={withBasePath(src)}
           alt={alt}
-          width={394}
-          height={860}
+          width={470}
+          height={1024}
           className="block h-auto w-full"
           loading={priority ? 'eager' : 'lazy'}
           fetchPriority={priority ? 'high' : undefined}

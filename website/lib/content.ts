@@ -57,8 +57,6 @@ export const bakeLooks = [
   { src: '/screenshots/looks/06.jpg', alt: 'Look bake example 6' },
   { src: '/screenshots/looks/07.jpg', alt: 'Look bake example 7' },
   { src: '/screenshots/looks/08.jpg', alt: 'Look bake example 8' },
-  { src: '/screenshots/looks/09.jpg', alt: 'Look bake example 9' },
-  { src: '/screenshots/looks/10.jpg', alt: 'Look bake example 10' },
 ] as const;
 
 export const mlLooks = [
